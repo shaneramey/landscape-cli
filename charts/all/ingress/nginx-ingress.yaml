@@ -1,7 +1,0 @@
-name: nginx-ingress
-namespace: ingress
-release:
-  chart: chartmuseum/nginx-ingress:0.7.3
-  version: 0.7.3
-configuration:
-  clusterDomain: cluster.local

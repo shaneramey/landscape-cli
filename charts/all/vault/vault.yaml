@@ -1,8 +1,0 @@
-name: vault
-namespace: vault
-release:
-  chart: chartmuseum/vault:0.1.133
-  version: 0.1.133
-configuration:
-  clusterDomain: cluster.local
-  directorySuffix: dc=cluster,dc=local

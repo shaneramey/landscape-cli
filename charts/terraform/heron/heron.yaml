@@ -1,6 +1,0 @@
-name: heron
-namespace: heron
-release:
-  chart: chartmuseum/heron:0.1.0
-  version: 0.1.0
-

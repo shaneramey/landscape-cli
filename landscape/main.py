@@ -19,6 +19,13 @@ Usage: landscape [options]
          [--shared-secrets-item=<pass_folder_item>] 
          [--secrets-password=<lpass_password>]
        landscape [options]
+        landscaper update-yaml 
+         --chart-directory=<lpass_user> 
+         --destination-name=<lpass_user> 
+         --destination-namespace=<lpass_user>
+         --
+         [--output=<path_to_landscaper_yaml>] 
+       landscape [options]
         setup install-prerequisites
 
 Options:
@@ -38,6 +45,9 @@ import platform
 
 from .cloudcollection import CloudCollection
 from .clustercollection import ClusterCollection
+from .cloud import Cloud
+from .cluster import Cluster
+
 from .chartscollection_landscaper import LandscaperChartsCollection
 from .secrets import UniversalSecrets
 from .localmachine import Localmachine
@@ -63,8 +73,13 @@ def cloud_for_cluster(cloud_collection, cluster_collection, cluster_selection):
     Returns:
         Cloud that contains the Cluster with the given name
     """
-    parent_cloud_id = cluster_collection[cluster_selection].cloud_id
-    parent_cloud = cloud_collection[parent_cloud_id]
+    print("cloud_collection={0}".format(cloud_collection))
+    print("cluster_collection={0}".format(cluster_collection))
+    print("cluster_selection={0}".format(cluster_selection))
+    parent_cloud = None
+    if cluster_selection in cluster_collection:
+        parent_cloud_id = cluster_collection[cluster_selection].cloud_id
+        parent_cloud = cloud_collection[parent_cloud_id]
     return parent_cloud
 
 def git_branch():
@@ -103,10 +118,7 @@ def git_branch():
 
 def main():
     args = docopt.docopt(__doc__)
-    # option to skip application of plans
-    dry_run = args['--dry-run']
 
-    # parse and apply logging verbosity
     loglevel = args['--log-level']
     numeric_level = getattr(logging, loglevel.upper(), None)
     if not isinstance(numeric_level, int):
@@ -114,15 +126,11 @@ def main():
     logging.basicConfig(level=numeric_level)
 
     # parse arguments
+    dry_run = args['--dry-run']
     cloud_selection = args['--cloud']
     cluster_selection = args['--cluster']
     namespaces_selection = args['--namespaces']
-
-    # branch is used to pull secrets from Vault, and to distinguish clusters
     git_branch_selection = args['--git-branch']
-    if not git_branch_selection:
-        git_branch_selection = git_branch()
-    
     use_all_git_branches = args['--all-branches']
     if use_all_git_branches:
         git_branch_selection = None
@@ -137,55 +145,78 @@ def main():
     # if set, write to a VAULT_ADDR env variable besides http://127.0.0.1:8200
     remote_vault_ok = args['--dangerous-overwrite-vault']
 
+    # apply arguments
+    cluster = None
+    if cloud_selection:
+        selected_cloud = CloudCollection.LoadCloudByName(cloud_selection)
+    logging.debug("cloud_selection: {0}".format(cloud_selection))
+
+    selected_cluster = None
+    if cluster_selection:
+        selected_cluster = ClusterCollection.LoadClusterByName(cluster_selection)
+    logging.debug("cluster_selection: {0}".format(cluster_selection))
+
+    if not git_branch_selection:
+        git_branch_selection = git_branch()
+    logging.debug("git_branch_selection: {0}".format(git_branch_selection))
+
+    clouds = None
+    clusters = None
+    charts = None
+    if not args['secrets']:
+        # landscape secrets overwrite --from-lastpass ...
+        clouds = CloudCollection(git_branch=git_branch_selection)
+        clusters = ClusterCollection(cloud=cloud_selection,
+                                        git_branch=git_branch_selection)
+    logging.debug("clouds: {0}".format(clouds))
+    logging.debug("clusters: {0}".format(clusters))
+
     # landscape cloud ...
     if args['cloud']:
-        logging.debug("git_branch_selection: {0}".format(git_branch_selection))
-        clouds = CloudCollection(git_branch_selection)
-        logging.debug("clouds: {0}".format(clouds))
         # landscape cloud list
         if args['list']:
             if cluster_selection:
-                clusters = ClusterCollection(clouds, cloud_selection, git_branch_selection)
-                cluster_cloud = cloud_for_cluster(clouds, clusters, cluster_selection)
-                print(cluster_cloud.name)
+                print(selected_cluster.cloud)
             else:
                 print(clouds)
         # landscape cloud converge
         elif args['converge']:
-            clouds[cloud_selection].converge(dry_run)
+            clouds[cloud_selection].converge()
+
 
     # landscape cluster ...
     elif args['cluster']:
-        clouds = CloudCollection(git_branch_selection)
-        clusters = ClusterCollection(clouds, cloud_selection, git_branch_selection)
         # landscape cluster list
         if args['list']:
-            print(clusters)
+            if cloud_selection:
+                clusters_in_cloud = [item for item in clouds if item.cloud_id == cloud_selection]
+                print(clusters_in_cloud)
+            else:
+                print(clusters)
+        # landscape cluster converge
         elif args['converge']:
             if also_converge_cloud:
-                cluster_cloud.converge()
-            clusters[cluster_selection].converge(dry_run)
+                selected_cluster.cloud.converge()
+            clusters[cluster_selection].converge()
+
 
     # landscape charts ...
     elif args['charts']:
-        clouds = CloudCollection(git_branch_selection)
-        clusters = ClusterCollection(clouds, cloud_selection, git_branch_selection)
-        cluster_cloud = cloud_for_cluster(clouds, clusters, cluster_selection)
         # TODO: figure out cluster_provisioner inside LandscaperChartsCollection
-        cloud_provisioner = cluster_cloud['provisioner']
-        charts = LandscaperChartsCollection(cluster_selection, cloud_provisioner, deploy_only_these_namespaces, dry_run)
-        
+        # to pass one less parameter to LandscaperChartsCollection
+        charts = LandscaperChartsCollection(context_name=cluster_selection,
+                                            namespace_selection=deploy_only_these_namespaces)
+        logging.debug("charts: {0}".format(charts))
         # landscape charts list ...
         if args['list']:
             print(charts)
-
         # landscape charts converge ...
         elif args['converge']:
             if also_converge_cloud:
-                cluster_cloud.converge()
+                selected_cluster.cloud.converge(dry_run)
             if also_converge_cluster:
-                clusters[cluster_selection].converge()
-            charts.converge()
+                clusters[cluster_selection].converge(dry_run)
+            charts.converge(dry_run)
             # set up local machine for cluster
             if also_converge_localmachine:
                 localmachine = Localmachine(cluster=clusters[cluster_selection])
@@ -204,10 +235,12 @@ def main():
             shared_secrets = UniversalSecrets(provider='lastpass', username=central_secrets_username, password=central_secrets_password)
             shared_secrets.overwrite_vault(shared_secrets_folder=central_secrets_folder, shared_secrets_item=git_branch_selection, use_remote_vault=remote_vault_ok, simulate=dry_run)
 
+
     # landscape setup install-prerequisites ...
     elif args['setup']:
         if args['install-prerequisites']:
             install_prerequisites(platform.system())
+
 
 if __name__ == "__main__":
     main()

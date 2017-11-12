@@ -9,10 +9,15 @@
 # Intended pipeline.
 # Running any of the below commands automatically runs all those above it.
 # Alter with DEPLOY_LOCAL_REPOS, SKIP_CONVERGE_CLOUD, SKIP_CONVERGE_CLUSTER
+#
 # make repos
+#
 # make [DEPLOY_LOCAL_REPOS=true] [DRYRUN=true] cloud
+#
 # make [SKIP_CONVERGE_CLOUD=true] [DEPLOY_LOCAL_REPOS=true] [DRYRUN=true] cluster
-# make [SKIP_CONVERGE_CLUSTER=true] [SKIP_CONVERGE_CLOUD=true] [DEPLOY_LOCAL_REPOS=true] [DRYRUN=true] charts
+#
+# make [SKIP_CONVERGE_CLUSTER=true] [SKIP_CONVERGE_CLOUD=true] \
+#      [DEPLOY_LOCAL_REPOS=true] [DRYRUN=true] charts
 #
 # A Jenkins pipeline might look like:
 #  repos -> cloud -> cluster -> charts
@@ -78,7 +83,8 @@ ifneq (,$(DEPLOY_ONLY_NAMESPACES))
 endif
 
 # Converge Vault container with LastPass secrets (optional)
-CONVERGE_SECRETS_CMD = landscape secrets overwrite-vault-with-lastpass --secrets-username=$(SHARED_SECRETS_USERNAME)
+CONVERGE_SECRETS_CMD = landscape secrets overwrite-vault-with-lastpass \
+						--secrets-username=$(SHARED_SECRETS_USERNAME)
 ifneq (,$(DANGER_DEPLOY_LASTPASS_SECRETS))
 	CONVERGE_SECRETS_CMD += --dangerous-overwrite-vault
 endif

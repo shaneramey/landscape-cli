@@ -14,7 +14,7 @@ class MinikubeCloud(Cloud):
         Inherited from superclass.
     """
 
-    def converge(self,dry_run):
+    def converge(self):
         """Converges state of a minikube VM
 
         Checks if a minikube cloud is already running
@@ -34,13 +34,13 @@ class MinikubeCloud(Cloud):
         cloud_status = proc.stdout.read().rstrip().decode()
         logging.debug('Minikube Cloud status is ' + cloud_status)
         if cloud_status == 'Running':
-            if not dry_run:
+            if not self._DRYRUN:
                 logging.info('Re-using previously provisioned cloud')
             else:
                 logging.info('DRYRUN: would be Re-using previously provisioned cloud')
         else:
             logging.info('Initializing Cloud')
-            if not dry_run:
+            if not self._DRYRUN:
                 self.initialize_cloud()
             else:
                 logging.info('DRYRUN: would be Initializing Cloud')
@@ -81,3 +81,5 @@ class MinikubeCloud(Cloud):
         minikube_start_failed = subprocess.call(start_cmd, shell=True)
         if minikube_start_failed:
             sys.exit('ERROR: minikube cloud initialization failure')
+
+

@@ -16,7 +16,8 @@ class UnmanagedCluster(Cluster):
         k8s_credentials: A dict of API server endpoint + credentials info
     """
 
-    def __init__(self, **kwargs):
+
+    def __init__(self, name, **kwargs):
         """initializes a UnmanagedCluster
 
         Reads cluster parameters from Vault for a non-Terraform and non-minikube
@@ -39,8 +40,7 @@ class UnmanagedCluster(Cluster):
             None.
         """
 
-        super(UnmanagedCluster, self).__init__(**kwargs)
-        self.cluster_name = kwargs['context_id']
+        Cluster.__init__(self, name, **kwargs)
         self.k8s_credentials = {
             'apiserver': kwargs['kubernetes_apiserver'],
             'client_key': kwargs['kubernetes_client_key'],

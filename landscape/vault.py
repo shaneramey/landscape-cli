@@ -347,3 +347,27 @@ class VaultClient(object):
             return vault_item_contents['data']
         else:
             raise ValueError(vault_error_data_str.format(vault_path))
+
+
+    def list_vault_prefix(self, vault_path):
+        """
+        Get Vault data for a specific path
+
+        Args:
+            vault_path (str): path to Vault item
+
+        Returns:
+            Vault secret contents (dict)
+
+        """
+        vault_error_read_str = 'Vault read at path: {0} error: {1}'
+        vault_error_data_str = 'Vault data missing at path: {0}'
+        try:
+            vault_item_list = self.__vault_client.list(vault_path)
+        except ValueError as e:
+            raise ValueError(vault_error_read_str.format(vault_path, e))
+
+        if vault_item_list and 'data' in vault_item_list:
+            return vault_item_list['data']
+        else:
+            raise ValueError(vault_error_data_str.format(vault_path))

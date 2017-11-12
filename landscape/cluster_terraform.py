@@ -5,6 +5,7 @@ import sys
 import logging
 
 from .cluster import Cluster
+from .cloudcollection import CloudCollection
 
 class TerraformCluster(Cluster):
     """A Terraform-provisioned GKE Cluster
@@ -25,8 +26,7 @@ class TerraformCluster(Cluster):
         cluster_name: A string containing the Kubernetes context/cluster name
     """
 
-
-    def __init__(self, **kwargs):
+    def __init__(self, name, **kwargs):
         """initializes a TerraformCluster
 
         Reads cluster parameters from Vault for a non-Terraform and non-minikube
@@ -49,14 +49,11 @@ class TerraformCluster(Cluster):
             None.
         """
 
-        super(TerraformCluster, self).__init__(**kwargs)
-        self.google_credentials = kwargs['google_credentials']
-        self.cluster_name = kwargs['gke_cluster_name']
-        self.__cluster_zone = kwargs['gke_cluster_zone']
+        Cluster.__init__(self, name, **kwargs)
         self.__gcloud_auth_jsonfile = os.getcwd() + '/cluster-serviceaccount-' + self.name + '.json'
         self.write_gcloud_keyfile_json()
 
-    def cluster_setup(self, dry_run):
+    def cluster_setup(self):
         """Activates authentication for bringing up a Terraform cluster
 
         Args:
@@ -132,15 +129,18 @@ class TerraformCluster(Cluster):
             None.
         """
 
+        # Get Google Credentials from parent cloud
+        my_cloud_id = self.cloud_id
+        my_cloud = CloudCollection.LoadCloudByName(my_cloud_id)
         gce_creds_file = self.__gcloud_auth_jsonfile
         logging.debug("Writing GOOGLE_APPLICATION_CREDENTIALS to {0}".format(gce_creds_file))
         f = open(gce_creds_file, "w")
         f = open(self.__gcloud_auth_jsonfile, "w")
-        f.write(self.google_credentials)
+        f.write(my_cloud.google_credentials)
         f.close()
 
 
-    def _configure_kubectl_credentials(self, dry_run):
+    def _configure_kubectl_credentials(self):
         """Obtains GKE cluster credentials and sets local k8s-context to cluster
 
         Gets GKE credentials via already-authenticated client GCP session.  Set

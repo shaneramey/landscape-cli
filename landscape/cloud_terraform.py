@@ -14,14 +14,14 @@ class TerraformCloud(Cloud):
 
     Attributes:
         tf_templates_dir: String containing path to terraform templates
-        gce_creds: GOOGLE_APPICATION_CREDENTIALS for cloud
+        google_credentials: GOOGLE_APPICATION_CREDENTIALS for cloud
         terraform_dir: String containing path to terraform templates (TODO: dup)
 
         Other attributes inherited from superclass.
 
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, name, **kwargs):
         """Initializes an instance of TerraformCloud
 
         Args:
@@ -34,10 +34,9 @@ class TerraformCloud(Cloud):
         Raises:
             None.
         """
-        Cloud.__init__(self, **kwargs)
+        Cloud.__init__(self, name, **kwargs)
         self.terraform_dir = os.getcwd() + '/terraform-templates'
         self.terraform_statefile = self.terraform_dir + '/.terraform/terraform.' + self.name + '.tfstate'
-        self.gce_creds = kwargs['google_credentials']
         self.__gcp_auth_jsonfile = os.getcwd() + '/cloud-serviceaccount-' + self.name + '.json'
         self.write_gcloud_keyfile_json()
         logging.debug("Using Terraform Directory: " + self.terraform_dir)
@@ -81,7 +80,7 @@ class TerraformCloud(Cloud):
         Raises:
             None.
         """
-        gce_creds = json.loads(self.gce_creds)
+        gce_creds = json.loads(self.google_credentials)
         return gce_creds['client_email']
 
 
@@ -90,11 +89,11 @@ class TerraformCloud(Cloud):
         logging.debug("Writing GOOGLE_APPLICATION_CREDENTIALS to {0}".format(google_application_creds_file))
         f = open(google_application_creds_file, "w")
         f = open(self.__gcp_auth_jsonfile, "w")
-        f.write(self.gce_creds)
+        f.write(self.google_credentials)
         f.close()
 
 
-    def converge(self, dry_run):
+    def converge(self):
         """Converges a Terraform cloud environment.
 
         Checks if a terraform cloud is already running
@@ -124,13 +123,13 @@ class TerraformCloud(Cloud):
             'terraform plan ' + terraform_vars + \
             " -state={0}".format(self.terraform_statefile)
 
-        if not dry_run:
+        if not self._DRYRUN:
             terraform_cmd_tmpl += ' && terraform apply ' + terraform_vars + \
                                     " -state={0}".format(self.terraform_statefile)
         terraform_cmd = terraform_cmd_tmpl.format(self.name,
                                                     'master',
                                                     '1.8.1-gke.0')
-        if not dry_run:
+        if not self._DRYRUN:
             logging.info('  - applying terraform state with command: ' + terraform_cmd)
             failed_to_apply_terraform = subprocess.call(terraform_cmd,
                                                         cwd=self.terraform_dir,
@@ -143,11 +142,11 @@ class TerraformCloud(Cloud):
 
 
 
-    def init_terraform(self, dry_run):
+    def init_terraform(self):
         """Initializes a terraform cloud.
 
         Args:
-            dry_run: flag for simulating convergence
+            None.
 
         Returns:
             None.        
@@ -164,7 +163,7 @@ class TerraformCloud(Cloud):
 
         tf_init_cmd = tf_init_cmd_tmpl.format(self.name)
 
-        if not dry_run:
+        if not self._DRYRUN:
             logging.info('Initializing terraform: ' + tf_init_cmd)
             failed_to_init_terraform = subprocess.call(tf_init_cmd,
                                                     cwd=self.terraform_dir,
@@ -215,3 +214,33 @@ class TerraformCloud(Cloud):
             else:
                 os.rename(symlink_to_manage, project_terraform_statefile)
                 os.symlink(project_terraform_statefile, symlink_to_manage)
+
+
+    def __getitem__(self, x):
+        """Enables the Cloud object to be subscriptable.
+
+        Args:
+            x: the element being subscripted.
+
+        Returns:
+            An arbitrary attribute of the class.
+
+        Raises:
+            None.
+        """
+        return getattr(self, x)
+
+
+    def __str__(self):
+        """Returns the cloud's name.
+
+        Args:
+            None.
+
+        Returns:
+            A String containing the cloud's unique name.
+
+        Raises:
+            None.
+        """
+        return self.name

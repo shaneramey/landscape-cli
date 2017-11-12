@@ -3,6 +3,8 @@ import subprocess
 import os
 from .kubernetes import kubectl_use_context
 from .helm import wait_for_tiller_ready
+from .vault import VaultClient
+from .cloudcollection import CloudCollection
 
 class Cluster(object):
     """A single generic Kubernetes cluster. Meant to be subclassed.
@@ -14,7 +16,7 @@ class Cluster(object):
         cloud_id: the cloud that provisioned the cluster's ID
 
     """
-    def __init__(self, **kwargs):
+    def __init__(self, name, dry_run=False, **kwargs):
         """initializes a Cluster.
 
         Reads a cluster's definition from Vault.
@@ -31,38 +33,40 @@ class Cluster(object):
         Raises:
             None
         """
-        self.name = kwargs['context_id']
-        self.cloud_id = kwargs['cloud_id']
-        self.landscaper_branch = kwargs['landscaper_branch']
+        self.name = name
+        self._DRYRUN = dry_run
+        for key, value in kwargs.items():
+          setattr(self, key, value)
 
 
-    def __str__(self):
-        return self.name
+    @property
+    def cloud(self):
+        cloud_id = self.cloud_id
+        return CloudCollection.LoadCloudByName(cloud_id)
 
-
-    def converge(self, dry_run):
+    def converge(self):
         """Stages of a Kubernetes Cluster converge.
         """
-        self.cluster_setup(dry_run)
-        self._configure_kubectl_credentials(dry_run)
-        self.cluster_converge(dry_run)
+        self.cluster_setup()
+        self._configure_kubectl_credentials()
+        self.cluster_converge()
 
 
-    def setup_tiller_clusterrole_and_serviceaccount(self, dry_run):
+    def setup_tiller_clusterrole_and_serviceaccount(self):
         """Provisions necessary Tiller RBAC role
         """
-        self.create_serviceaccount('tiller', 'kube-system', dry_run)
-        self.create_clusterrolebinding('tiller', 'kube-system', 'cluster-admin', dry_run)
+        self.create_serviceaccount('tiller', 'kube-system')
+        self.create_clusterrolebinding('tiller', 'kube-system', 'cluster-admin')
 
 
-    def cluster_converge(self, dry_run):
+    def cluster_converge(self):
         """Performs post-provisioning initialization of cluster
 
         Checks if Tiller is already installed. If not, install it.
         Sets up any additional clusterrolebindings wanted (in lieu of Helm)
 
         Args:
-            dry_run: flag for simulating convergence
+            None.
 
         Returns:
             None.
@@ -70,13 +74,13 @@ class Cluster(object):
         Raises:
             None.
         """
-        self.apply_tiller(dry_run)
+        self.apply_tiller()
         # Enable Kubernetes Dashboard in Minikube with RBAC enabled
         if self.name == 'minikube':
-            self.create_extra_accts(dry_run)
+            self.create_extra_accts()
 
 
-    def apply_tiller(self, dry_run):
+    def apply_tiller(self):
         """Checks if Tiller is already installed. If not, install it.
 
         Retrieves rows pertaining to the given keys from the Table instance
@@ -84,7 +88,7 @@ class Cluster(object):
         other_silly_variable is not None.
 
         Args:
-            dry_run: flag for simulating convergence
+            None.
 
         Returns:
             None.
@@ -97,7 +101,7 @@ class Cluster(object):
                                 '-l app=helm -l name=tiller ' + \
                                 '-o jsonpath=\'{.items[0].status.phase}\''
 
-        if not dry_run:
+        if not self._DRYRUN:
             logging.info('Checking tiller pod status with command: ' + \
                             tiller_pod_status_cmd)
             DEVNULL = open(os.devnull, 'w')
@@ -109,7 +113,7 @@ class Cluster(object):
             # if Tiller isn't initialized, wait for it to come up
             if not tiller_pod_status == "Running":
                 logging.info('Did not detect tiller pod')
-                self.init_tiller(dry_run)
+                self.init_tiller()
             else:
                 logging.info('Detected running tiller pod')
             # make sure Tiller is ready to accept connections
@@ -119,7 +123,7 @@ class Cluster(object):
                             tiller_pod_status_cmd)
 
 
-    def init_tiller(self, dry_run):
+    def init_tiller(self):
         """Creates Tiller RBAC permissions and initializes Tiller.
 
         Retrieves rows pertaining to the given keys from the Table instance
@@ -127,7 +131,7 @@ class Cluster(object):
         other_silly_variable is not None.
 
         Args:
-            dry_run: flag for simulating convergence
+            None.
 
         Returns:
             None.
@@ -136,12 +140,12 @@ class Cluster(object):
             None.
         """
         # Set up Tiller serviceaccount and clusterrolebinding
-        self.setup_tiller_clusterrole_and_serviceaccount(dry_run)
+        self.setup_tiller_clusterrole_and_serviceaccount()
 
         # Initialize Helm by installing Tiller
         helm_provision_cmd = "helm init --service-account=tiller " + \
                              "--kube-context={0}".format(self.name)
-        if not dry_run:
+        if not self._DRYRUN:
             logging.info('Initializing Tiller: ' + \
                             helm_provision_cmd)
             subprocess.call(helm_provision_cmd, shell=True)
@@ -155,7 +159,7 @@ class Cluster(object):
             pass
 
 
-    def create_extra_accts(self, dry_run):
+    def create_extra_accts(self):
         # needed until minikube includes a kubernetes-dashboard
         # clusterrolebinding, or this is put into a helm chart
         SA_CRB_MAPPING = [
@@ -170,16 +174,16 @@ class Cluster(object):
             name = acct['id']
             ns = acct['namespace']
             cr = acct['clusterrole']
-            self.create_serviceaccount(name, ns, dry_run)
-            self.create_clusterrolebinding(name, ns, cr, dry_run)
+            self.create_serviceaccount(name, ns)
+            self.create_clusterrolebinding(name, ns, cr)
 
 
-    def create_serviceaccount(self, sa_name, namespace, dry_run):
+    def create_serviceaccount(self, sa_name, namespace):
         # Create ServiceAccount
         sa_create_cmd = 'kubectl create serviceaccount ' + sa_name + \
                         ' --context=' + self.name + \
                         ' --namespace=' + namespace
-        if not dry_run:
+        if not self._DRYRUN:
             logging.info('Creating serviceaccount: ' + sa_create_cmd)
             subprocess.call(sa_create_cmd, shell=True)
         else:
@@ -187,14 +191,14 @@ class Cluster(object):
                     sa_create_cmd)
 
 
-    def create_clusterrolebinding(self, sa_name, namespace, clusterrole, dry_run):
+    def create_clusterrolebinding(self, sa_name, namespace, clusterrole):
         # Create ClusterRoleBinding with cluster-admin role
         crb_create_cmd = 'kubectl create clusterrolebinding ' + \
                             'landscape-' + sa_name + \
                             ' --context=' + self.name + \
                             ' --clusterrole=' + clusterrole + \
                             ' --serviceaccount=' + namespace + ':' + sa_name
-        if not dry_run:
+        if not self._DRYRUN:
             logging.info('Creating ClusterRoleBinding: ' + crb_create_cmd)
             subprocess.call(crb_create_cmd, shell=True)
         else:
@@ -202,9 +206,9 @@ class Cluster(object):
                 crb_create_cmd)
 
 
-    def cluster_setup(self, dry_run):
+    def cluster_setup(self):
         raise NotImplementedError('Must be overridden in subclass')
 
 
-    def _configure_kubectl_credentials(self, dry_run):
+    def _configure_kubectl_credentials(self):
         raise NotImplementedError('Must be overridden in subclass')

@@ -1,6 +1,7 @@
 import logging
 
 from .vault import VaultClient
+from .cloud import Cloud
 from .cluster_minikube import MinikubeCluster
 from .cluster_terraform import TerraformCluster
 from .cluster_unmanaged import UnmanagedCluster
@@ -18,7 +19,31 @@ class ClusterCollection(object):
         clusters: (optionally) filtered list of clusters, read from Vault
     """
 
-    def __init__(self, cloud_collection, cloud_selector, charts_git_branch_selector):
+    vault_prefix = '/secret/landscape/clusters'
+
+    @classmethod
+    def LoadClusterByName(cls, cluster_name):
+        cluster_vault_path = ClusterCollection.vault_prefix + '/' + cluster_name
+        cluster_parameters = VaultClient().dump_vault_from_prefix(
+                                cluster_vault_path, strip_root_key=True)
+
+        cluster_from_vault = None
+        cloud_id_for_cluster = cluster_parameters['cloud_id']
+        cluster_cloud = CloudCollection.LoadCloudByName(cloud_id_for_cluster)
+        cloud_and_cluster_provisioner = cluster_cloud.provisioner
+
+        if cloud_and_cluster_provisioner == 'minikube':
+            cluster_from_vault = MinikubeCluster(cluster_name, **cluster_parameters)
+        elif cloud_and_cluster_provisioner == 'terraform':
+            cluster_from_vault = TerraformCluster(cluster_name, **cluster_parameters)
+        elif cloud_and_cluster_provisioner == 'unmanaged':
+            cluster_from_vault = UnmanagedCluster(cluster_name, **cluster_parameters)
+        else:
+            raise ValueError("Bad Provisioner: {0}".format(cloud_and_cluster_provisioner))
+        return(cluster_from_vault)
+
+
+    def __init__(self, **kwargs):
         """initializes a ClusterCollection for a given git branch.
 
         Reads a dict of clusters from Vault, and filter the results based on the
@@ -29,7 +54,7 @@ class ClusterCollection(object):
                 identify the cluster's type
             cloud_selector(str): If set, ClusterCollection is composed of only
                 clusters in this cloud
-            charts_git_branch_selector(str): If set, ClusterCollection is
+            git_branch_selector(str): If set, ClusterCollection is
                 composed of only clusters subscribed to this branch. Set in
                 Vault-defined settings for the cluster
 
@@ -39,11 +64,51 @@ class ClusterCollection(object):
         Raises:
             None.
         """
+        self.cloud_selector = kwargs['cloud']
+        self.git_branch_selector = kwargs['git_branch']
 
-        self.charts_git_branch_selector = charts_git_branch_selector
-        self.cloud_selector = cloud_selector
-        self.__clouds = cloud_collection
-        self.clusters = self.__filter_clusters(cloud_selector, charts_git_branch_selector)
+        self._clusters = []
+
+
+    @property
+    def clusters(self):
+        """Loads clusters from Vault and filters them
+        """
+        if not self._clusters:
+            clusters_in_vault = VaultClient().dump_vault_from_prefix(
+                        ClusterCollection.vault_prefix, strip_root_key=True)
+            for cluster_name, cluster_attribs in clusters_in_vault.items():
+                # If git_branch_selector is None, generate collection of
+                # all clusters. Otherwise, generate collection including only
+                # clusters subscribing to this branch.
+                if self.valid_cluster_attribs_for_selection(cluster_attribs):
+                    loaded_cluster = ClusterCollection.LoadClusterByName(cluster_name)
+                    self._clusters.append(loaded_cluster)
+        return self._clusters
+
+
+    def valid_cluster_attribs_for_selection(self, attribs):
+        if self.valid_cluster_branch_for_selection(attribs) and \
+            self.valid_cloud_id_for_selection(attribs):
+            return True
+        else:
+            return False
+
+    def valid_cluster_branch_for_selection(self, attribs):
+        if self.git_branch_selector:
+            if attribs['landscaper_branch'] != self.git_branch_selector:
+                return False
+        return True
+
+
+    def valid_cloud_id_for_selection(self, attribs):
+        if self.cloud_selector:
+            if attribs['cloud_id'] != self.cloud_selector:
+                return False
+        return True
+
+
+# cloud_selection, charts_branch_selection
 
     def __str__(self):
         """Pretty-prints a list of clusters
@@ -79,74 +144,6 @@ class ClusterCollection(object):
         logging.debug("clusters are".format(self.clusters))
         cluster = next((item for item in self.clusters if item.name == cluster_name))
         return cluster
-
-    def __filter_clusters(self, cloud_selection, charts_branch_selection):
-        """Loads clusters from Vault and filters them
-        """
-        vault_clusters = self.__load_clusters_from_vault()
-        filtered_clusters = []
-        # Look at each Vault key's name for its context
-        for vault_cluster in vault_clusters:
-            # If charts_git_branch_selector is None, generate collection of
-            # all clusters. Otherwise, generate collection including only
-            # clusters subscribing to this branch.
-            if charts_branch_selection == vault_cluster.landscaper_branch or \
-                not charts_branch_selection:
-                if cloud_selection == vault_cluster.cloud_id or \
-                    not cloud_selection:
-                    filtered_clusters.append(vault_cluster)
-
-        return filtered_clusters
-
-
-    def __load_clusters_from_vault(self):
-        """Retrieves cluster definitions from Vault and loads them into a dict
-
-        Recurses through Vault looking to only retrieve clusters referencing a
-        cloud in self.clouds
-
-        Args:
-            None.
-
-        Returns:
-            A dict mapping keys to the corresponding table row data
-            fetched. Each row is represented as a tuple of strings. For
-            example:
-
-            {
-                'gke_staging-123456_us-west1-a_master': <TerraformCluster>,
-                'minikube': <MinikubeCluster>
-            }
-
-        Raises:
-            None.
-        """
-        vault_cluster_prefix = '/secret/landscape/clusters'
-        # Dump Vault
-        cluster_defs = VaultClient().dump_vault_from_prefix(
-            vault_cluster_prefix, strip_root_key=True)
-        clouds = CloudCollection()
-        clusters = []
-        for cluster_name in cluster_defs:
-            # inject cluster name into data
-            cluster_def = cluster_defs[cluster_name]
-            cluster_def.update({'context_id': cluster_name})
-            cloud_name_for_cluster = cluster_def['cloud_id']
-            cloud_for_cluster = clouds[cloud_name_for_cluster]
-            cloud_provisioner = cloud_for_cluster.provisioner
-
-            # Load specific cluster type based on cloud provisioner
-            if cloud_provisioner == 'minikube':
-                clusters.append(MinikubeCluster(**cluster_def))
-            elif cloud_provisioner == 'terraform':
-                cluster_def.update(
-                            {'google_credentials': cloud_for_cluster.gce_creds})
-                clusters.append(TerraformCluster(**cluster_def))
-            elif cloud_provisioner == 'unmanaged':
-                clusters.append(UnmanagedCluster(**cluster_def))
-            else:
-                raise("Unknown cloud provisioner: {0}".format(cloud_provisioner))
-        return clusters
 
 
     def list(self):

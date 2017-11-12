@@ -1,3 +1,5 @@
+from .vault import VaultClient
+
 class Cloud(object):
     """A single generic cloud provider. Meant to be subclassed. Examples:
 
@@ -12,25 +14,28 @@ class Cloud(object):
         provisioner: Tool used to provision the cloud.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, name, dry_run=False, **kwargs):
         """Initializes a Cloud.
 
         Reads a cloud's definition from Vault.
 
         Args:
+            name: the Cloud's unique name
             kwargs**:
-              name: the Cloud's unique name
               provisioner: The tool that provisioned the cloud
               git_branch: the git branch the cloud subscribes to
+
         Returns:
             None
 
         Raises:
             None
         """
-        self.name = kwargs['name']
-        self.provisioner = kwargs['provisioner']
-        self.git_branch = kwargs['provisioner_branch']
+        self.name = name
+        self._DRYRUN = dry_run
+        for key, value in kwargs.items():
+          setattr(self, key, value)
+
 
     def __getitem__(self, x):
         """Enables the Cloud object to be subscriptable.
@@ -61,17 +66,3 @@ class Cloud(object):
         """
         return self.name
 
-
-    def converge(self, dry_run):
-        """Override this method in your subclass.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-
-        Raises:
-            NotImplementedError if called directly.
-        """
-        raise NotImplementedError()

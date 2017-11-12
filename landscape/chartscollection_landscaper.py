@@ -8,6 +8,7 @@ import logging
 from .vault import VaultClient
 from .chartscollection import ChartsCollection
 from .chart_landscaper import LandscaperChart
+from .clustercollection import ClusterCollection
 
 class LandscaperChartsCollection(ChartsCollection):
     """Loads up a directory of chart yaml for use by Landscaper
@@ -20,7 +21,7 @@ class LandscaperChartsCollection(ChartsCollection):
         charts: An integer count of the eggs we have laid.
         cluster_branch:  The branch of the landscaper repo that the cluster subscribes to
     """
-    def __init__(self, context_name, cluster_cloud_type, namespace_selection, dry_run):
+    def __init__(self, dry_run=False, **kwargs):
         """Initializes a set of charts for a cluster.
 
         Determines which yaml files in the directory structure should be applied
@@ -31,7 +32,6 @@ class LandscaperChartsCollection(ChartsCollection):
 
         Args:
             context_name: The Kubernetes context name in which to apply charts.
-            cluster_cloud_type: A directory name containing the cluster type.
             namespace_selection: A List of namespaces for which to apply charts.
 
         Returns:
@@ -45,12 +45,13 @@ class LandscaperChartsCollection(ChartsCollection):
         #  - cluster's cloud type (minikube, terraform (GKE), unmanaged, etc.)
         #  - 'all' dir contains charts which can be applied to all clusters.
         # branch used to read landscaper secrets from Vault (to put in env vars)
-        self.__DRYRUN = dry_run
-        self._vault = VaultClient()
-        self.context_name = context_name
-        self.cluster_branch = self.__get_landscaper_branch_that_cluster_subscribes_to()
-        self.__chart_collections = ['all'] + [cluster_cloud_type]
-        self.charts = self.__load_landscaper_yaml_for_cloud_type_and_namespace_selection(namespace_selection)
+        self._DRYRUN = dry_run
+        self.context_name = kwargs['context_name']
+        self.namespace_selection = kwargs['namespace_selection']
+        self._charts = []
+
+        # self.cluster_branch = self.__get_landscaper_branch_that_cluster_subscribes_to()
+        # self.charts = self.__load_landscaper_yaml_for_cloud_type_and_namespace_selection(namespace_selection)
 
 
     def __str__(self):
@@ -78,25 +79,37 @@ class LandscaperChartsCollection(ChartsCollection):
         return self.charts
 
 
-    def __get_landscaper_branch_that_cluster_subscribes_to(self):
+    @property
+    def git_branch(self):
         """Read landscaper branch for cluster name from vault
 
         Returns:
             landscaper branch for cluster, read from vault (str)
         """
-        return self._vault.get_vault_data(
-            '/secret/landscape/clusters/' + \
-            self.context_name)['landscaper_branch']
+        cluster = ClusterCollection.LoadClusterByName(self.context_name)
+        return cluster.landscaper_branch
 
 
-    def __load_landscaper_yaml_for_cloud_type_and_namespace_selection(self, select_namespaces):
+    @property
+    def cloud_provisioner_for_cluster(self):
+        """Read landscaper branch for cluster name from vault
+
+        Returns:
+            landscaper branch for cluster, read from vault (str)
+        """
+        cluster = ClusterCollection.LoadClusterByName(self.context_name)
+        return cluster.cloud.provisioner
+
+
+    @property
+    def charts(self):
         """Loads Landscaper YAML files into a List if they are in namespaces
         
         Checks inside YAML file for namespace field and appends LandscaperChart
         to converge-charts list
 
         Args:
-            select_namespaces: A list of namespaces to apply. If None, apply all
+            None
 
         Returns:
             A list of LandscaperChart chart definitions.
@@ -104,27 +117,31 @@ class LandscaperChartsCollection(ChartsCollection):
         Raises:
             None.
         """
-        cluster_specific_landscaper_dirs = self.__chart_collections
+        landscaper_dirpath = self.chart_collections(self.context_name)
 
-        landscaper_dirpath = ['./charts/' + s for s in self.__chart_collections]
         files = self.__landscaper_filenames_in_dirs(landscaper_dirpath)
         charts = []
         for landscaper_yaml in files:
             with open(landscaper_yaml) as f:
                 chart_info = yaml.load(f)
-                logging.debug("chart_info={0}".format(chart_info))
                 chart_namespace = chart_info['namespace']
-                logging.debug("chart_namespace={0}".format(chart_namespace))
                 # load the chart if it matches a namespace selector list param
                 # or if there's no namespace selector list, load all
-                if chart_namespace in select_namespaces or not select_namespaces:
+                if chart_namespace in self.namespace_selection or not self.namespace_selection:
                     # Add path to landscaper yaml inside Chart object
                     chart_info['filepath'] = landscaper_yaml
                     chart = LandscaperChart(**chart_info)
                     charts.append(chart)
-
         return charts
 
+
+    def chart_collections(self, cluster_name):
+        """Find out the cluster's cloud ID and what its provisioner is
+            This is used to determine which charts to load
+        """
+        provisioner_specific_collection = self.cloud_provisioner_for_cluster
+        collections = ['all'] + [provisioner_specific_collection]
+        return collections
 
     def __landscaper_filenames_in_dirs(self, dirs_to_apply):
         """Generates a list of Landscaper files in specified directories
@@ -144,11 +161,10 @@ class LandscaperChartsCollection(ChartsCollection):
                 for root, dirnames, filenames in os.walk(cloud_specific_charts_dir):
                     for filename in fnmatch.filter(filenames, '*.yaml'):
                         landscaper_files.append(os.path.join(root, filename))
-        logging.debug("landscaper_files={0}".format(landscaper_files))
         return landscaper_files
 
 
-    def converge(self):
+    def converge(self, dry_run):
         """Read namespaces from charts and apply them one namespace at a time.
 
         Performs steps:
@@ -158,7 +174,6 @@ class LandscaperChartsCollection(ChartsCollection):
         """
         namespaces_to_apply = self.__namespaces()
         for namespace in namespaces_to_apply:
-            logging.debug("Running deploy_landscaper_charts on namespace {0}".format(namespace))
             envvar_secrets_for_namespace = self.get_landscaper_envvars_for_namespace(namespace)
             # Get list of yaml files
             yamlfiles_in_namespace = [item.filepath for item in self.charts if item.namespace == namespace]
@@ -255,7 +270,7 @@ class LandscaperChartsCollection(ChartsCollection):
                             k8s_namespace + \
                             ' --context=' + self.context_name + \
                             ' ' + ' '.join(landscaper_filepaths)
-        if self.__DRYRUN:
+        if self._DRYRUN:
             ls_apply_cmd += ' --dry-run'
         logging.info('Executing: ' + ls_apply_cmd)
         # update env to preserve VAULT_ env vars
@@ -279,12 +294,12 @@ class LandscaperChartsCollection(ChartsCollection):
             None.
         """
         chart_vault_secret = "/secret/landscape/charts/{0}/{1}/{2}".format(
-                                                    self.cluster_branch,
+                                                    self.git_branch,
                                                     chart_namespace,
                                                     chart_name
                                                    )
         logging.info("Reading path {0}".format(chart_vault_secret))
-        vault_secrets = self._vault.dump_vault_from_prefix(chart_vault_secret, strip_root_key=True)
+        vault_secrets = VaultClient().dump_vault_from_prefix(chart_vault_secret, strip_root_key=True)
         return vault_secrets
 
 

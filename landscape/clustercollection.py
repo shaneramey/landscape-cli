@@ -27,20 +27,22 @@ class ClusterCollection(object):
         cluster_parameters = VaultClient().dump_vault_from_prefix(
                                 cluster_vault_path, strip_root_key=True)
 
-        cluster_from_vault = None
+        retval = None
         cloud_id_for_cluster = cluster_parameters['cloud_id']
         cluster_cloud = CloudCollection.LoadCloudByName(cloud_id_for_cluster)
-        cloud_and_cluster_provisioner = cluster_cloud.provisioner
+        # Assume the cluster was provisioned inside of the cloud
+        # Then, their provisioners are the same
+        cc_provisioner = cluster_cloud.provisioner
 
-        if cloud_and_cluster_provisioner == 'minikube':
-            cluster_from_vault = MinikubeCluster(cluster_name, **cluster_parameters)
-        elif cloud_and_cluster_provisioner == 'terraform':
-            cluster_from_vault = TerraformCluster(cluster_name, **cluster_parameters)
-        elif cloud_and_cluster_provisioner == 'unmanaged':
-            cluster_from_vault = UnmanagedCluster(cluster_name, **cluster_parameters)
+        if cc_provisioner == 'minikube':
+            retval = MinikubeCluster(cluster_name, **cluster_parameters)
+        elif cc_provisioner == 'terraform':
+            retval = TerraformCluster(cluster_name, **cluster_parameters)
+        elif cc_provisioner == 'unmanaged':
+            retval = UnmanagedCluster(cluster_name, **cluster_parameters)
         else:
-            raise ValueError("Bad Provisioner: {0}".format(cloud_and_cluster_provisioner))
-        return(cluster_from_vault)
+            raise ValueError("Bad Provisioner: {0}".format(cc_provisioner))
+        return(retval)
 
 
     def __init__(self, **kwargs):

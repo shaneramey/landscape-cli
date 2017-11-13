@@ -21,7 +21,7 @@ class LandscaperChartsCollection(ChartsCollection):
         charts: An integer count of the eggs we have laid.
         cluster_branch:  The branch of the landscaper repo that the cluster subscribes to
     """
-    def __init__(self, dry_run=False, **kwargs):
+    def __init__(self, path_to_repo, dry_run=False, **kwargs):
         """Initializes a set of charts for a cluster.
 
         Determines which yaml files in the directory structure should be applied
@@ -47,11 +47,57 @@ class LandscaperChartsCollection(ChartsCollection):
         # branch used to read landscaper secrets from Vault (to put in env vars)
         self._DRYRUN = dry_run
         self.context_name = kwargs['context_name']
+        print("CN={0}".format(kwargs['context_name']))
         self.namespace_selection = kwargs['namespace_selection']
         self._charts = []
+        if self.directory_on_proper_vault_branch(path_to_repo):
+            self.workdir = path_to_repo
+        else:
+            raise ValueError('Landscaper dir not on Vault-specified branch')
 
         # self.cluster_branch = self.__get_landscaper_branch_that_cluster_subscribes_to()
         # self.charts = self.__load_landscaper_yaml_for_cloud_type_and_namespace_selection(namespace_selection)
+
+
+    def directory_on_proper_vault_branch(self, repo_path):
+        if self.git_branch_in_directory(repo_path) == self.charts_branch_name_for_cluster():
+            return True
+        else:
+            return False
+
+
+    def charts_branch_name_for_cluster(self):
+        cluster = ClusterCollection.LoadClusterByName(self.context_name)
+        return cluster.landscaper_branch
+
+
+    def git_branch_in_directory(self, dir):
+        """Gets the git branch of a specified directory
+
+        Args: None
+
+        Returns:
+            git branch of specified directory (str)
+        """
+        git_branch_cmd = "git branch"
+        print("dir={0}".format(dir))
+        logging.debug("Running {0}".format(git_branch_cmd))
+        proc = subprocess.Popen(git_branch_cmd,
+                                cwd=dir,
+                                stdout=subprocess.PIPE,
+                                shell=True)
+        git_branch_cmd_output = proc.stdout.read().rstrip().decode()
+        # wait for command return code
+        proc.communicate()[0]
+        if proc.returncode != 0:
+            raise ChildProcessError('Could not detect git branch. Try passing --git-branch')
+
+        git_branch_cmd_lines = git_branch_cmd_output.splitlines()
+        starred_branchname = next((item for item in git_branch_cmd_lines if item.startswith('*')))
+        current_branch = starred_branchname.strip()[2:]
+        logging.info("Auto-detected branch to be: " + current_branch)
+
+        return current_branch
 
 
     def __str__(self):
@@ -117,9 +163,9 @@ class LandscaperChartsCollection(ChartsCollection):
         Raises:
             None.
         """
-        landscaper_dirpath = self.chart_collections(self.context_name)
+        landscaper_path = [self.workdir + '/' + s for s in self._chart_collections()]
 
-        files = self.__landscaper_filenames_in_dirs(landscaper_dirpath)
+        files = self._landscaper_filenames_in_dirs(landscaper_path)
         charts = []
         for landscaper_yaml in files:
             with open(landscaper_yaml) as f:
@@ -135,7 +181,7 @@ class LandscaperChartsCollection(ChartsCollection):
         return charts
 
 
-    def chart_collections(self, cluster_name):
+    def _chart_collections(self):
         """Find out the cluster's cloud ID and what its provisioner is
             This is used to determine which charts to load
         """
@@ -143,7 +189,7 @@ class LandscaperChartsCollection(ChartsCollection):
         collections = ['all'] + [provisioner_specific_collection]
         return collections
 
-    def __landscaper_filenames_in_dirs(self, dirs_to_apply):
+    def _landscaper_filenames_in_dirs(self, dirs_to_apply):
         """Generates a list of Landscaper files in specified directories
 
         Args:

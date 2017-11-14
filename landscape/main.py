@@ -9,7 +9,7 @@ Usage: landscape [options]
          [--git-branch=<git_branch> | --all-branches] |
          converge [--converge-cloud])
        landscape [options]
-        charts --cluster=<cluster_name> [--landscaper-dir=<landscaper_yaml_path>]
+        charts --cluster=<cluster_name> [--namespaces=<namespaces>] [--landscaper-dir=<landscaper_yaml_path>]
           (list [--namespaces=<namespaces>] [--git-branch=<git_branch>]
          | converge [--converge-cluster] [--converge-cloud] [--converge-localmachine])
        landscape [options]
@@ -24,7 +24,6 @@ Usage: landscape [options]
          --chart-directory=<lpass_user> 
          --destination-name=<lpass_user> 
          --destination-namespace=<lpass_user>
-         --
          [--output=<path_to_landscaper_yaml>] 
        landscape [options]
         setup install-prerequisites

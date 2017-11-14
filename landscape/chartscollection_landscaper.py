@@ -47,7 +47,6 @@ class LandscaperChartsCollection(ChartsCollection):
         # branch used to read landscaper secrets from Vault (to put in env vars)
         self._DRYRUN = dry_run
         self.context_name = kwargs['context_name']
-        print("CN={0}".format(kwargs['context_name']))
         self.namespace_selection = kwargs['namespace_selection']
         self._charts = []
         if self.directory_on_proper_vault_branch(path_to_repo):
@@ -80,7 +79,7 @@ class LandscaperChartsCollection(ChartsCollection):
             git branch of specified directory (str)
         """
         git_branch_cmd = "git branch"
-        print("dir={0}".format(dir))
+        logging.debug("Checking git branch in directory {0}".format(dir))
         logging.debug("Running {0}".format(git_branch_cmd))
         proc = subprocess.Popen(git_branch_cmd,
                                 cwd=dir,

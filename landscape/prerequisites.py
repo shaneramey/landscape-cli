@@ -94,11 +94,11 @@ def install_kubectl(os_platform):
 def install_helm(os_platform):
     """Installs Kubernetes Helm"""
     install_cmds = {
-        'Darwin': 'curl -LO https://storage.googleapis.com/kubernetes-helm/helm-v2.6.1-darwin-amd64.tar.gz && \
-        tar zvxf helm-v2.6.1-darwin-amd64.tar.gz --strip-components=1 darwin-amd64/helm && \
+        'Darwin': 'curl -LO https://storage.googleapis.com/kubernetes-helm/helm-v2.7.2-darwin-amd64.tar.gz && \
+        tar zvxf helm-v2.7.2-darwin-amd64.tar.gz --strip-components=1 darwin-amd64/helm && \
         chmod +x helm && \
         mv helm /usr/local/bin/ && \
-        rm helm-v2.6.1-darwin-amd64.tar.gz'
+        rm helm-v2.7.2-darwin-amd64.tar.gz'
     }
     dst = '/usr/local/bin/helm'
     if not os.path.isfile(dst):
@@ -143,7 +143,6 @@ def install_helm_plugins():
     """Install helm plugins. Requires helm to be installed"""
     plugins = {
         'https://github.com/technosophos/helm-gpg': '0.1.0',
-        'https://github.com/technosophos/helm-template': '2.5.1+2',
     }
     for plugin_url, version in plugins.items():
         install_cmd = "helm plugin install {0} --version={1}".format(

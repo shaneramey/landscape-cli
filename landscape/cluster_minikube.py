@@ -30,8 +30,8 @@ class MinikubeCluster(Cluster):
         """
 
         logging.info('Configuring minikube addons')
-        disable_addons = ['kube-dns', 'registry-creds', 'ingress']
-        enable_addons = ['default-storageclass']
+        disable_addons = ['kube-dns', 'ingress']
+        enable_addons = ['default-storageclass', 'registry-creds']
 
         # addons to disable
         for disable_addon in disable_addons:

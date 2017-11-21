@@ -1,5 +1,9 @@
 import subprocess
 import logging
+import pexpect
+import os
+import sys
+
 
 from .cluster import Cluster
 
@@ -53,6 +57,30 @@ class MinikubeCluster(Cluster):
                     logging.warn("Failed to enable addon with command: {0}".format(addon_cmd))
             else:
                 logging.info("DRYRUN: would be Enabling addon with command: {0}".format(addon_cmd))
+        self._configure_addon_registry_creds()
+
+
+    def _configure_addon_registry_creds(self):
+        """Configure minikube registry-creds addon for GCP use
+        """
+        gcr_creds_path = os.path.expanduser('~') + '/.config/gcloud/application_default_credentials.json'
+        if not os.path.isfile(gcr_creds_path):
+            raise EnvironmentError("GCP Application Default Credentials missing in {0}. Run `gcloud auth application-default login`".format(gcr_creds_path))
+        child = pexpect.spawn('minikube addons configure registry-creds', encoding='utf-8')
+        child.logfile = sys.stdout
+        child.expect('Do you want to enable AWS Elastic Container Registry')
+        child.sendline('n')
+        child.expect('Do you want to enable Google Container Registry')
+        child.sendline('y')
+        child.expect('Enter path to credentials')
+        child.sendline(gcr_creds_path)
+        child.expect('Do you want to change the GCR URL')
+        child.sendline('y')
+        child.expect('Enter GCR URL')
+        child.sendline('https://us.gcr.io')
+        child.expect('Do you want to enable Docker Registry')
+        child.sendline('n')
+        child.expect('registry-creds was successfully configured')
 
 
     def _configure_kubectl_credentials(self):

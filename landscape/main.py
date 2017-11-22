@@ -3,7 +3,7 @@
 """
 Usage: landscape [options]
         cloud (list [--git-branch=<git_branch> | --all-branches] [--cluster=<cluster_name>] | 
-               converge [--cloud=<cloud_project>])
+               converge [--cloud=<cloud_project>] [--landscaper-dir=<landscaper_yaml_path>])
        landscape [options]
         cluster [--cluster=<cluster_name>] [--cloud=<cloud_name>] (list 
          [--git-branch=<git_branch> | --all-branches] |
@@ -11,7 +11,7 @@ Usage: landscape [options]
        landscape [options]
         charts --cluster=<cluster_name> [--namespaces=<namespaces>] [--landscaper-dir=<landscaper_yaml_path>]
           (list [--namespaces=<namespaces>] [--git-branch=<git_branch>]
-         | converge [--converge-cluster] [--converge-cloud] [--converge-localmachine])
+         | converge [--namespaces=<namespaces>] [--converge-cluster] [--converge-cloud] [--converge-localmachine])
        landscape [options]
         secrets overwrite-vault-with-lastpass 
          --secrets-username=<lpass_user> 
@@ -33,6 +33,7 @@ Options:
                                  (charts) repositories matching specified branch
                                  [default: auto-detect-branch].
     --landscaper-dir=<path>      Path to Landscaper YAML dir [default: .].                 
+    --terraform-dir=<path>       Path to Terraform templates [default: ../terraform].                 
     --all-branches               Operate on all branches
     --dry-run                    Simulate, but don't converge.
     --log-level=<log_level>      Log messages at least this level [default: INFO].
@@ -78,14 +79,11 @@ def main():
         git_branch_selection = None
     use_all_git_branches = args['--all-branches']
     landscaper_dir = args['--landscaper-dir']
+    terraform_dir = args['--terraform-dir']
 
     if use_all_git_branches:
         git_branch_selection = None
 
-    if namespaces_selection:
-        deploy_only_these_namespaces = namespaces_selection.split(',')
-    else:
-        deploy_only_these_namespaces = []
     also_converge_cloud = args['--converge-cloud']
     also_converge_cluster = args['--converge-cluster']
     also_converge_localmachine = args['--converge-localmachine']
@@ -110,7 +108,8 @@ def main():
     charts = None
     if not args['secrets']:
         # landscape secrets overwrite --from-lastpass ...
-        clouds = CloudCollection(git_branch=git_branch_selection)
+        clouds = CloudCollection(git_branch=git_branch_selection,
+                                    path_to_terraform_repo=terraform_dir)
         clusters = ClusterCollection(cloud=cloud_selection,
                                         git_branch=git_branch_selection)
     logging.debug("clouds: {0}".format(clouds))
@@ -145,9 +144,9 @@ def main():
     elif args['charts']:
         # TODO: figure out cluster_provisioner inside LandscaperChartsCollection
         # to pass one less parameter to LandscaperChartsCollection
-        charts = LandscaperChartsCollection(path_to_repo=landscaper_dir,
+        charts = LandscaperChartsCollection(path_to_landscaper_repo=landscaper_dir,
                                             context_name=cluster_selection,
-                                            namespace_selection=deploy_only_these_namespaces)
+                                            namespace_selection=namespaces_selection)
         logging.debug("charts: {0}".format(charts))
         # landscape charts list ...
         if args['list']:

@@ -68,7 +68,7 @@ class MinikubeCloud(Cloud):
                     '--extra-config=controller-manager.ClusterSigningKeyFile=' + \
                     '/var/lib/localkube/certs/ca.key ' + \
                     '--cpus=8 ' + \
-                    '--disk-size=20g ' + \
+                    '--disk-size=40g ' + \
                     '--memory=8192 ' + \
                     '--docker-env HTTPS_PROXY=$http_proxy ' + \
                     '--docker-env HTTP_PROXY=$https_proxy ' + \

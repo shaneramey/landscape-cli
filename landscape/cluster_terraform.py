@@ -48,9 +48,10 @@ class TerraformCluster(Cluster):
         Raises:
             None.
         """
-
+        self._cluster_zone = kwargs['gke_cluster_zone']
+        self._cluster_name = kwargs['gke_cluster_name']
         Cluster.__init__(self, name, **kwargs)
-        self.__gcloud_auth_jsonfile = os.getcwd() + '/cluster-serviceaccount-' + self.name + '.json'
+        self._gcloud_auth_jsonfile = os.getcwd() + '/cluster-serviceaccount-' + self.name + '.json'
         self.write_gcloud_keyfile_json()
 
     def cluster_setup(self):
@@ -66,17 +67,17 @@ class TerraformCluster(Cluster):
             None.
         """
 
-        envvars = self.__update_environment_vars_with_gcp_auth()
+        envvars = self._update_environment_vars_with_gcp_auth()
         gce_auth_cmd = "gcloud auth activate-service-account " + \
                         self.service_account_email() + \
-                        " --key-file=" + self.__gcloud_auth_jsonfile
+                        " --key-file=" + self._gcloud_auth_jsonfile
         logging.info("Running command {0}".format(gce_auth_cmd))
         gce_auth_failed = subprocess.call(gce_auth_cmd, env=envvars, shell=True)
         if gce_auth_failed:
             sys.exit("ERROR: non-zero retval for {}".format(gce_auth_cmd))
 
 
-    def __update_environment_vars_with_gcp_auth(self):
+    def _update_environment_vars_with_gcp_auth(self):
         """Update environment variables with GCE credentials file path
 
         Retrieves rows pertaining to the given keys from the Table instance
@@ -95,7 +96,7 @@ class TerraformCluster(Cluster):
         """
 
         return os.environ.update({
-            'GOOGLE_APPLICATION_CREDENTIALS': self.__gcloud_auth_jsonfile,
+            'GOOGLE_APPLICATION_CREDENTIALS': self._gcloud_auth_jsonfile,
         })
 
 
@@ -112,8 +113,10 @@ class TerraformCluster(Cluster):
             None.
         """
 
-        gce_creds = json.loads(self.google_credentials)
-        return gce_creds['client_email']
+        my_cloud_id = self.cloud_id
+        my_cloud = CloudCollection.LoadCloudByName(my_cloud_id)
+        creds = json.loads(my_cloud.google_credentials)
+        return creds['client_email']
 
 
     def write_gcloud_keyfile_json(self):
@@ -132,10 +135,9 @@ class TerraformCluster(Cluster):
         # Get Google Credentials from parent cloud
         my_cloud_id = self.cloud_id
         my_cloud = CloudCollection.LoadCloudByName(my_cloud_id)
-        gce_creds_file = self.__gcloud_auth_jsonfile
+        gce_creds_file = self._gcloud_auth_jsonfile
         logging.debug("Writing GOOGLE_APPLICATION_CREDENTIALS to {0}".format(gce_creds_file))
         f = open(gce_creds_file, "w")
-        f = open(self.__gcloud_auth_jsonfile, "w")
         f.write(my_cloud.google_credentials)
         f.close()
 
@@ -159,8 +161,8 @@ class TerraformCluster(Cluster):
             None.
         """
 
-        get_creds_cmd = "gcloud container clusters get-credentials --project={0} --zone={1} {2}".format(self.cloud_id, self.__cluster_zone, self.cluster_name)
-        envvars = self.__update_environment_vars_with_gcp_auth()
+        get_creds_cmd = "gcloud container clusters get-credentials --project={0} --zone={1} {2}".format(self.cloud_id, self._cluster_zone, self._cluster_name)
+        envvars = self._update_environment_vars_with_gcp_auth()
         logging.info("Running command {0}".format(get_creds_cmd))
         get_creds_failed = subprocess.call(get_creds_cmd, env=envvars, shell=True)
         if get_creds_failed:

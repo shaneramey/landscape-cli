@@ -35,7 +35,7 @@ class TerraformCloud(Cloud):
             None.
         """
         Cloud.__init__(self, name, **kwargs)
-        self.terraform_dir = os.getcwd() + '/terraform-templates'
+        self.terraform_dir = kwargs['path_to_terraform_repo']
         self.terraform_statefile = self.terraform_dir + '/.terraform/terraform.' + self.name + '.tfstate'
         self.__gcp_auth_jsonfile = os.getcwd() + '/cloud-serviceaccount-' + self.name + '.json'
         self.write_gcloud_keyfile_json()
@@ -109,7 +109,7 @@ class TerraformCloud(Cloud):
             None.
         """
         self.init_terraform(dry_run)
-
+        # TODO: push logic to terraform repo Makefile
         # Generate terraform command: populate variables
         tf_vars_args = '-var="gce_project_id={0}" ' + \
                         '-var="gke_cluster1_name={1}" ' + \

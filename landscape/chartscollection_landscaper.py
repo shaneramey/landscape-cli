@@ -21,7 +21,7 @@ class LandscaperChartsCollection(ChartsCollection):
         charts: An integer count of the eggs we have laid.
         cluster_branch:  The branch of the landscaper repo that the cluster subscribes to
     """
-    def __init__(self, path_to_repo, dry_run=False, **kwargs):
+    def __init__(self, path_to_landscaper_repo, dry_run=False, **kwargs):
         """Initializes a set of charts for a cluster.
 
         Determines which yaml files in the directory structure should be applied
@@ -49,8 +49,8 @@ class LandscaperChartsCollection(ChartsCollection):
         self.context_name = kwargs['context_name']
         self.namespace_selection = kwargs['namespace_selection']
         self._charts = []
-        if self.directory_on_proper_vault_branch(path_to_repo):
-            self.workdir = path_to_repo
+        if self.directory_on_proper_vault_branch(path_to_landscaper_repo):
+            self.workdir = path_to_landscaper_repo
         else:
             raise ValueError('Landscaper dir not on Vault-specified branch')
 

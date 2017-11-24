@@ -1,6 +1,8 @@
 import subprocess
 import sys
 import logging
+import shutil
+from os.path import expanduser
 
 from .cloud import Cloud
 
@@ -58,6 +60,16 @@ class MinikubeCloud(Cloud):
         Raises:
             None.
         """
+
+        # Copy docker registry credentials to inside minikube
+        home = expanduser('~')
+        docker_local_auth_file = home + '/.docker/config.json'
+        minikube_file_copy_location = home + '/.minikube/files/'
+        inside_minikube_docker_auth_file = '/files/config.json'
+        logging.info("Copying file: {0} from local machine to inside minikube VM at path: {1} via path: {2}".format(docker_local_auth_file, inside_minikube_docker_auth_file, minikube_file_copy_location))
+        shutil.copy(docker_local_auth_file, minikube_file_copy_location)
+
+        # start minikube
         start_cmd_tmpl = 'minikube start ' + \
                     '--kubernetes-version=v{0} ' + \
                     "--vm-driver={1} " + \

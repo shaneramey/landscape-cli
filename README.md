@@ -99,23 +99,6 @@ Deploys to local docker containers:
  - hashicorp vault
  - chartmuseum Helm chart server
 
-make SHARED_SECRETS_USERNAME=<lastpass_username> GOOGLE_STORAGE_BUCKET=<chart_gcs_bucket> local deploy
-
-# Connect to a VPN inside your cluster
-helm status openvpn-openvpn # copy the create_viscosity_profile section
-                            # and run it in your shell
-open minikube-master.ovpn # Import Viscosity profile into MacOS
-
-# Connect to minikube-master. admin credentials are pulled from LastPass
-# via the above `make` command.
-
-# Open https://http.jenkins.svc.cluster.local in your browser
-```
-
-## Getting Started (cloud-mode via Terraform)
- - Add Jenkinsfile to a Jenkins job
- - Open https://http.jenkins.svc.cluster.local in your browser
-
 ## Git Branch Subscriptions
 - clouds are tied to git branches for a terraform repo [terraform repo](terraform-templates)
 - clusters are tied to git branches for a landscaper chart repo [landscaper repo](charts)
@@ -123,7 +106,11 @@ open minikube-master.ovpn # Import Viscosity profile into MacOS
 The landscape tool in this repo is careful not to apply git branches
 to the wrong clusters and clouds, unless forced on the command line with --force
 
-## Cluster-specific provisioning
+## Getting Started (cloud-mode via Terraform)
+ - Add Jenkinsfile to a Jenkins job
+ - Open https://http.jenkins.svc.cluster.local in your browser
+
+## Command-line cluster-specific provisioning
 
 ### minikube
 
@@ -180,6 +167,18 @@ helm status openvpn-openvpn | grep -v '^.*#' | sed -e '1,/generate_openvpn_profi
 
 - Username and password are what is in Vault /openvpn/ sub-key
 
+
+# Connect to a VPN inside your cluster
+helm status openvpn-openvpn # copy the create_viscosity_profile section
+                            # and run it in your shell
+open minikube-master.ovpn # Import Viscosity profile into MacOS
+
+# Connect to minikube-master. admin credentials are pulled from LastPass
+# via the above `make` command.
+
+# Open https://http.jenkins.svc.cluster.local in your browser
+```
+
 ## Prerequisites
 Should be installed automatically, if missing
  - kubectl
@@ -188,8 +187,12 @@ Should be installed automatically, if missing
  - vault
  - minikube
  - landscaper
+ - [Google Cloud SDK](https://cloud.google.com/sdk/)
 
-You may also want to download the [Google Cloud SDK](https://cloud.google.com/sdk/)
+For gcr.io docker auth config on MacOSX, your ~/.docker/config.json file must
+have the `"credsStore": "osxkeychain"` line removed. Then run `docker login` to
+the registry you want to use for docker images. The file will be copied in as
+part of the minikube start-up.
 
 ## Credentials
 

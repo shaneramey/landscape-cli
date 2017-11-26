@@ -119,14 +119,18 @@ def convergeCloud(cloud_name, dry_run=true) {
 }
 
 def convergeCluster(cluster_name, dry_run=true) {
-    def cmd = "landscape cluster converge --cluster=" + cluster_name
+    if(cluster_name != "minikube") {
+        def cmd = "landscape cluster converge --cluster=" + cluster_name
 
-    if(dry_run) {
-        cmd += " --dry-run"
+        if(dry_run) {
+            cmd += " --dry-run"
+        }
+        println("Running command: " + cmd)
+        sout = executeOrReportErrors(cmd)
+        println(sout)
+    } else {
+        println("Skipping minikube cluster setup inside of Jenkins")
     }
-    println("Running command: " + cmd)
-    sout = executeOrReportErrors(cmd)
-    println(sout)
 }
 
 def convergeCharts(cluster_name, dry_run=true) {

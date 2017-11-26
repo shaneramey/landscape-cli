@@ -108,7 +108,7 @@ class TerraformCloud(Cloud):
             None.
         """
         self.write_gcloud_keyfile_json()
-        self.init_terraform(dry_run)
+        self.init_terraform()
         # TODO: push logic to terraform repo Makefile
         # Generate terraform command: populate variables
         tf_vars_args = '-var="gce_project_id={0}" ' + \

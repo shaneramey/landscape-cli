@@ -39,7 +39,8 @@ class MinikubeCloud(Cloud):
             if not self._DRYRUN:
                 logging.info('Re-using previously provisioned cloud')
             else:
-                logging.info('DRYRUN: would be Re-using previously provisioned cloud')
+                logging.info('DRYRUN: would be Re-using previously ' + \
+                                'provisioned cloud')
         else:
             logging.info('Initializing Cloud')
             if not self._DRYRUN:
@@ -66,26 +67,30 @@ class MinikubeCloud(Cloud):
         docker_local_auth_file = home + '/.docker/config.json'
         minikube_file_copy_location = home + '/.minikube/files/'
         inside_minikube_docker_auth_file = '/files/config.json'
-        logging.info("Copying file: {0} from local machine to inside minikube VM at path: {1} via path: {2}".format(docker_local_auth_file, inside_minikube_docker_auth_file, minikube_file_copy_location))
+        logging.info("Copying file: {0} from local machine to inside " + \
+                        "minikube VM at path: {1} via path: {2}".format(
+                            docker_local_auth_file,
+                            inside_minikube_docker_auth_file,
+                            minikube_file_copy_location))
         shutil.copy(docker_local_auth_file, minikube_file_copy_location)
 
         # start minikube
         start_cmd_tmpl = 'minikube start ' + \
-                    '--kubernetes-version=v{0} ' + \
-                    "--vm-driver={1} " + \
-                    "--dns-domain={2} " + \
-                    '--extra-config=apiserver.Authorization.Mode=RBAC ' + \
-                    '--extra-config=controller-manager.ClusterSigningCertFile=' + \
-                    '/var/lib/localkube/certs/ca.crt ' + \
-                    '--extra-config=controller-manager.ClusterSigningKeyFile=' + \
-                    '/var/lib/localkube/certs/ca.key ' + \
-                    '--cpus=8 ' + \
-                    '--disk-size=40g ' + \
-                    '--memory=8192 ' + \
-                    '--docker-env HTTPS_PROXY=$http_proxy ' + \
-                    '--docker-env HTTP_PROXY=$https_proxy ' + \
-                    '--keep-context ' + \
-                    '-v=2'
+                '--kubernetes-version=v{0} ' + \
+                "--vm-driver={1} " + \
+                "--dns-domain={2} " + \
+                '--extra-config=apiserver.Authorization.Mode=RBAC ' + \
+                '--extra-config=controller-manager.ClusterSigningCertFile=' + \
+                '/var/lib/localkube/certs/ca.crt ' + \
+                '--extra-config=controller-manager.ClusterSigningKeyFile=' + \
+                '/var/lib/localkube/certs/ca.key ' + \
+                '--cpus=8 ' + \
+                '--disk-size=40g ' + \
+                '--memory=8192 ' + \
+                '--docker-env HTTPS_PROXY=$http_proxy ' + \
+                '--docker-env HTTP_PROXY=$https_proxy ' + \
+                '--keep-context ' + \
+                '-v=2'
         start_cmd = start_cmd_tmpl.format('1.8.0',
                                             'xhyve',
                                             'cluster.local')

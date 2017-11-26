@@ -100,24 +100,24 @@ class MinikubeCluster(Cluster):
             logging.info('minikube context already configured. Skipping setup')
             return
 
-        cluster_name = self.name
-        user_name = cluster_name
-        context_name = cluster_name
-        credentials = self.k8s_credentials
+        # cluster_name = self.name
+        # user_name = cluster_name
+        # context_name = cluster_name
+        # credentials = self.k8s_credentials
 
-        # Attributes for kubeconfig file
-        kubectl_user_attrs = {
-            'client-certificate-data': credentials['client_certificate'],
-            'client-key-data': credentials['client_key'],
-        }
-        kubectl_cluster_attrs = {
-            'server': credentials['apiserver'],
-            'certificate-authority-data': credentials['apiserver_ca'],
-        }
-        kubectl_context_attrs = {
-            'cluster': cluster_name,
-            'user': user_name,
-        }
+        # # Attributes for kubeconfig file
+        # kubectl_user_attrs = {
+        #     'client-certificate-data': credentials['client_certificate'],
+        #     'client-key-data': credentials['client_key'],
+        # }
+        # kubectl_cluster_attrs = {
+        #     'server': credentials['apiserver'],
+        #     'certificate-authority-data': credentials['apiserver_ca'],
+        # }
+        # kubectl_context_attrs = {
+        #     'cluster': cluster_name,
+        #     'user': user_name,
+        # }
 
         # Generate list of commands to run, to set kubeconfig settings
         shcmds = []

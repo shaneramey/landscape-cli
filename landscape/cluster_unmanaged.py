@@ -64,6 +64,7 @@ class UnmanagedCluster(Cluster):
             None.
         """
         self.configure_kubectl_credentials()
+        Cluster.converge(self)
 
 
     def _configure_kubectl_credentials(self):

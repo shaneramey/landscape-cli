@@ -47,9 +47,7 @@ class Cluster(object):
     def converge(self):
         """Stages of a Kubernetes Cluster converge.
         """
-        self.cluster_setup()
-        self._configure_kubectl_credentials()
-        self.cluster_converge()
+        self.apply_tiller
 
 
     def setup_tiller_clusterrole_and_serviceaccount(self):
@@ -58,26 +56,6 @@ class Cluster(object):
         self.create_serviceaccount('tiller', 'kube-system')
         self.create_clusterrolebinding('tiller', 'kube-system', 'cluster-admin')
 
-
-    def cluster_converge(self):
-        """Performs post-provisioning initialization of cluster
-
-        Checks if Tiller is already installed. If not, install it.
-        Sets up any additional clusterrolebindings wanted (in lieu of Helm)
-
-        Args:
-            None.
-
-        Returns:
-            None.
-
-        Raises:
-            None.
-        """
-        self.apply_tiller()
-        # Enable Kubernetes Dashboard in Minikube with RBAC enabled
-        if self.name == 'minikube':
-            self.create_extra_accts()
 
 
     def apply_tiller(self):
@@ -204,11 +182,3 @@ class Cluster(object):
         else:
             logging.info('DRYRUN: would be Creating ClusterRoleBinding: ' + \
                 crb_create_cmd)
-
-
-    def cluster_setup(self):
-        raise NotImplementedError('Must be overridden in subclass')
-
-
-    def _configure_kubectl_credentials(self):
-        raise NotImplementedError('Must be overridden in subclass')

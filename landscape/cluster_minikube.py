@@ -19,7 +19,7 @@ class MinikubeCluster(Cluster):
         None.
     """
 
-    def cluster_setup(self):
+    def converge(self):
         """Converges minikube state and sets addons
 
         Checks if a minikube cloud is already running; initializes it if not
@@ -68,7 +68,9 @@ class MinikubeCluster(Cluster):
                 logging.info(
                     'DRYRUN: would be ' + \
                     "Enabling addon with command: {0}".format(addon_cmd))
-
+        self._configure_kubectl_credentials()
+        self.cluster_converge()
+        Cluster.converge(self)
 
     def _configure_kubectl_credentials(self):
         """Set a kubeconfig from Vault
@@ -98,7 +100,7 @@ class MinikubeCluster(Cluster):
             logging.info('minikube context already configured. Skipping setup')
             return
 
-        cluster_name = self.cluster_name
+        cluster_name = self.name
         user_name = cluster_name
         context_name = cluster_name
         credentials = self.k8s_credentials
@@ -196,4 +198,3 @@ class MinikubeCluster(Cluster):
         # run generalized cluster converge steps after docker is auth'd
         # doing the above first (for example) allows Helm Tiller to use a
         #  private repository
-        Cluster.cluster_converge(self)

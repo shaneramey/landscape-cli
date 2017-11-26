@@ -53,7 +53,7 @@ class TerraformCluster(Cluster):
         Cluster.__init__(self, name, **kwargs)
         self._gcloud_auth_jsonfile = os.getcwd() + '/cluster-serviceaccount-' + self.name + '.json'
 
-    def cluster_setup(self):
+    def converge(self):
         """Activates authentication for bringing up a Terraform cluster
 
         Args:
@@ -74,6 +74,8 @@ class TerraformCluster(Cluster):
         gce_auth_failed = subprocess.call(gce_auth_cmd, env=envvars, shell=True)
         if gce_auth_failed:
             sys.exit("ERROR: non-zero retval for {}".format(gce_auth_cmd))
+        self._configure_kubectl_credentials()
+        Cluster.converge(self)
 
 
     def _update_environment_vars_with_gcp_auth(self):

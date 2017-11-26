@@ -69,11 +69,14 @@ class MinikubeCluster(Cluster):
                     'DRYRUN: would be ' + \
                     "Enabling addon with command: {0}".format(addon_cmd))
 
-    def _configure_kubectl_credentials(self):
-        """Don't configure kubectl for minikube clusters.
 
-        Override parent class method to do nothing, because minikube sets up
-        kubeconfig on its own
+    def _configure_kubectl_credentials(self):
+        """Set a kubeconfig from Vault
+
+        Don't configure kubectl for minikube clusters if an entry already exists
+         in ~/.kube/config. This is so minikube works from outside the cluster
+         (via the minikube command's implicit setup), and from within the
+         cluster (via Jenkinsfile).
 
         Args:
             None.
@@ -84,9 +87,53 @@ class MinikubeCluster(Cluster):
         Raises:
             None.
         """
-        logging.info("Using minikube's pre-configured KUBECONFIG entry")
-        logging.info(
-            "minikube cluster converge previously set current-context")
+        # skip re-configuring kubectl for minikube, so that inside-cluster works
+        get_cfg_contexts_cmd = 'kubectl config get-contexts -o=name'
+
+        proc = subprocess.Popen(get_cfg_contexts_cmd, stdout=subprocess.PIPE, shell=True)
+        configured_context_names = proc.stdout.read().rstrip().decode()
+        print("configured_context_names={0}".format(configured_context_names))
+        # don't re-configure minikube
+        if 'minikube' in configured_context_names:
+            logging.info('minikube context already configured. Skipping setup')
+            return
+
+        cluster_name = self.cluster_name
+        user_name = cluster_name
+        context_name = cluster_name
+        credentials = self.k8s_credentials
+
+        # Attributes for kubeconfig file
+        kubectl_user_attrs = {
+            'client-certificate-data': credentials['client_certificate'],
+            'client-key-data': credentials['client_key'],
+        }
+        kubectl_cluster_attrs = {
+            'server': credentials['apiserver'],
+            'certificate-authority-data': credentials['apiserver_ca'],
+        }
+        kubectl_context_attrs = {
+            'cluster': cluster_name,
+            'user': user_name,
+        }
+
+        # Generate list of commands to run, to set kubeconfig settings
+        shcmds = []
+        for user_attr, user_val in kubectl_user_attrs.items():
+            shcmds.append("kubectl config set users.{0}.{1} {2}".format(user_name, user_attr, user_val))
+
+        for cluster_attr, cluster_val in kubectl_cluster_attrs.items():
+            shcmds.append("kubectl config set clusters.{0}.{1} {2}".format(cluster_name, cluster_attr, cluster_val))
+
+        for context_attr, context_val in kubectl_context_attrs.items():
+            shcmds.append("kubectl config set contexts.{0}.{1} {2}".format(context_name, context_attr, context_val))
+
+        # Set kubeconfig via shell commands
+        for kubectl_cfg_cmd in shcmds:
+            cfg_failed = subprocess.call(kubectl_cfg_cmd, shell=True)
+            if cfg_failed:
+                sys.exit("ERROR: non-zero retval for {}".format(kubectl_cfg_cmd))
+
 
     def cluster_converge(self):
         """Performs post-provisioning initialization of minikube cluster

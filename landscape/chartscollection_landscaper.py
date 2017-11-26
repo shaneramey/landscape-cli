@@ -49,54 +49,10 @@ class LandscaperChartsCollection(ChartsCollection):
         self.context_name = kwargs['context_name']
         self.namespace_selection = kwargs['namespace_selection']
         self._charts = []
-        if self.directory_on_proper_vault_branch(path_to_landscaper_repo):
-            self.workdir = path_to_landscaper_repo
-        else:
-            raise ValueError('Landscaper dir not on Vault-specified branch')
+        self.workdir = path_to_landscaper_repo
 
         # self.cluster_branch = self.__get_landscaper_branch_that_cluster_subscribes_to()
         # self.charts = self.__load_landscaper_yaml_for_cloud_type_and_namespace_selection(namespace_selection)
-
-
-    def directory_on_proper_vault_branch(self, repo_path):
-        if self.git_branch_in_directory(repo_path) == self.charts_branch_name_for_cluster():
-            return True
-        else:
-            return False
-
-
-    def charts_branch_name_for_cluster(self):
-        cluster = ClusterCollection.LoadClusterByName(self.context_name)
-        return cluster.landscaper_branch
-
-
-    def git_branch_in_directory(self, dir):
-        """Gets the git branch of a specified directory
-
-        Args: None
-
-        Returns:
-            git branch of specified directory (str)
-        """
-        git_branch_cmd = "git branch"
-        logging.debug("Checking git branch in directory {0}".format(dir))
-        logging.debug("Running {0}".format(git_branch_cmd))
-        proc = subprocess.Popen(git_branch_cmd,
-                                cwd=dir,
-                                stdout=subprocess.PIPE,
-                                shell=True)
-        git_branch_cmd_output = proc.stdout.read().rstrip().decode()
-        # wait for command return code
-        proc.communicate()[0]
-        if proc.returncode != 0:
-            raise ChildProcessError('Could not detect git branch. Try passing --git-branch')
-
-        git_branch_cmd_lines = git_branch_cmd_output.splitlines()
-        starred_branchname = next((item for item in git_branch_cmd_lines if item.startswith('*')))
-        current_branch = starred_branchname.strip()[2:]
-        logging.info("Auto-detected branch to be: " + current_branch)
-
-        return current_branch
 
 
     def __str__(self):

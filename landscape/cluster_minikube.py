@@ -120,13 +120,13 @@ class MinikubeCluster(Cluster):
         # Generate list of commands to run, to set kubeconfig settings
         shcmds = []
         for user_attr, user_val in kubectl_user_attrs.items():
-            shcmds.append("kubectl config set users.{0}.{1} {2}".format(user_name, user_attr, user_val))
+            shcmds.append("echo kubectl config set users.{0}.{1} {2}".format(user_name, user_attr, user_val))
 
         for cluster_attr, cluster_val in kubectl_cluster_attrs.items():
-            shcmds.append("kubectl config set clusters.{0}.{1} {2}".format(cluster_name, cluster_attr, cluster_val))
+            shcmds.append("echo kubectl config set clusters.{0}.{1} {2}".format(cluster_name, cluster_attr, cluster_val))
 
         for context_attr, context_val in kubectl_context_attrs.items():
-            shcmds.append("kubectl config set contexts.{0}.{1} {2}".format(context_name, context_attr, context_val))
+            shcmds.append("echo kubectl config set contexts.{0}.{1} {2}".format(context_name, context_attr, context_val))
 
         # Set kubeconfig via shell commands
         for kubectl_cfg_cmd in shcmds:

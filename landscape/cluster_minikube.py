@@ -33,6 +33,16 @@ class MinikubeCluster(Cluster):
         Raises:
             None.
         """
+        # skip re-configuring kubectl for minikube, so that inside-cluster works
+        get_cfg_contexts_cmd = 'kubectl config get-contexts -o=name'
+
+        proc = subprocess.Popen(get_cfg_contexts_cmd, stdout=subprocess.PIPE, shell=True)
+        configured_context_names = proc.stdout.read().rstrip().decode()
+        print("configured_context_names={0}".format(configured_context_names))
+        # don't re-configure minikube
+        if 'minikube' in configured_context_names:
+            logging.info('minikube context already configured. Skipping setup')
+            return
 
         logging.info('Configuring minikube addons')
         disable_addons = ['kube-dns', 'ingress', 'registry-creds']
@@ -89,16 +99,6 @@ class MinikubeCluster(Cluster):
         Raises:
             None.
         """
-        # skip re-configuring kubectl for minikube, so that inside-cluster works
-        get_cfg_contexts_cmd = 'kubectl config get-contexts -o=name'
-
-        proc = subprocess.Popen(get_cfg_contexts_cmd, stdout=subprocess.PIPE, shell=True)
-        configured_context_names = proc.stdout.read().rstrip().decode()
-        print("configured_context_names={0}".format(configured_context_names))
-        # don't re-configure minikube
-        if 'minikube' in configured_context_names:
-            logging.info('minikube context already configured. Skipping setup')
-            return
 
         # cluster_name = self.name
         # user_name = cluster_name

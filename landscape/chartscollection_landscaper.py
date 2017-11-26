@@ -272,7 +272,7 @@ class LandscaperChartsCollection(ChartsCollection):
                             ' --context=' + self.context_name
         # point Landscaper at the right helm home directory
         # (it doesn't respect the HELM_HOME environment variable)
-        helm_home = os.environ('HELM_HOME')
+        helm_home = os.environ['HELM_HOME']
         if helm_home:
             ls_apply_cmd += ' --helm-home={0}'.format(helm_home)
         ls_apply_cmd += ' ' + ' '.join(landscaper_filepaths)

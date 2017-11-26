@@ -38,7 +38,6 @@ class TerraformCloud(Cloud):
         self.terraform_dir = kwargs['path_to_terraform_repo']
         self.terraform_statefile = self.terraform_dir + '/.terraform/terraform.' + self.name + '.tfstate'
         self.__gcp_auth_jsonfile = os.getcwd() + '/cloud-serviceaccount-' + self.name + '.json'
-        self.write_gcloud_keyfile_json()
         logging.debug("Using Terraform Directory: " + self.terraform_dir)
 
 
@@ -108,6 +107,7 @@ class TerraformCloud(Cloud):
         Raises:
             None.
         """
+        self.write_gcloud_keyfile_json()
         self.init_terraform(dry_run)
         # TODO: push logic to terraform repo Makefile
         # Generate terraform command: populate variables

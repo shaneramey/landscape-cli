@@ -52,7 +52,6 @@ class TerraformCluster(Cluster):
         self._cluster_name = kwargs['gke_cluster_name']
         Cluster.__init__(self, name, **kwargs)
         self._gcloud_auth_jsonfile = os.getcwd() + '/cluster-serviceaccount-' + self.name + '.json'
-        self.write_gcloud_keyfile_json()
 
     def cluster_setup(self):
         """Activates authentication for bringing up a Terraform cluster
@@ -66,7 +65,7 @@ class TerraformCluster(Cluster):
         Raises:
             None.
         """
-
+        self.write_gcloud_keyfile_json()
         envvars = self._update_environment_vars_with_gcp_auth()
         gce_auth_cmd = "gcloud auth activate-service-account " + \
                         self.service_account_email() + \

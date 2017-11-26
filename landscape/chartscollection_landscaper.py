@@ -269,8 +269,14 @@ class LandscaperChartsCollection(ChartsCollection):
         #       at in a namespace. This is because Landscaper wipes the ns 1st 
         ls_apply_cmd = 'landscaper apply -v --namespace=' + \
                             k8s_namespace + \
-                            ' --context=' + self.context_name + \
-                            ' ' + ' '.join(landscaper_filepaths)
+                            ' --context=' + self.context_name
+        # point Landscaper at the right helm home directory
+        # (it doesn't respect the HELM_HOME environment variable)
+        helm_home = os.environ('HELM_HOME')
+        if helm_home:
+            ls_apply_cmd += ' --helm-home={0}'.format(helm_home)
+        ls_apply_cmd += ' ' + ' '.join(landscaper_filepaths)
+
         if self._DRYRUN:
             ls_apply_cmd += ' --dry-run'
         logging.info('Executing: ' + ls_apply_cmd)

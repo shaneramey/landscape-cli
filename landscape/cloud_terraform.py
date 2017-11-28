@@ -137,7 +137,7 @@ class TerraformCloud(Cloud):
             terraform_cmd = terraform_apply_cmd_tmpl.format(self.name,
                                                             'master',
                                                             '1.8.1-gke.0')
-        logging.info('Running terraform command: ' + terraform_cmd)
+        logging.info('Running terraform command: ' + terraform_cmd + ' in dir: ' + self.terraform_dir)
         failed_terraform = subprocess.call(terraform_cmd,
                                             cwd=self.terraform_dir,
                                             env=self.envvars(),

@@ -16,7 +16,7 @@ class MinikubeCloud(Cloud):
         Inherited from superclass.
     """
 
-    def converge(self):
+    def converge(self, dry_run):
         """Converges state of a minikube VM
 
         Checks if a minikube cloud is already running
@@ -36,14 +36,14 @@ class MinikubeCloud(Cloud):
         cloud_status = proc.stdout.read().rstrip().decode()
         logging.debug('Minikube Cloud status is ' + cloud_status)
         if cloud_status == 'Running':
-            if not self._DRYRUN:
+            if not dry_run:
                 logging.info('Re-using previously provisioned cloud')
             else:
                 logging.info('DRYRUN: would be Re-using previously ' + \
                                 'provisioned cloud')
         else:
             logging.info('Initializing Cloud')
-            if not self._DRYRUN:
+            if not dry_run:
                 self.initialize_cloud()
             else:
                 logging.info('DRYRUN: would be Initializing Cloud')
@@ -98,5 +98,15 @@ class MinikubeCloud(Cloud):
         minikube_start_failed = subprocess.call(start_cmd, shell=True)
         if minikube_start_failed:
             sys.exit('ERROR: minikube cloud initialization failure')
+        self.set_minikube_clock()
 
 
+    def set_minikube_clock(self):
+        """Workaround for https://github.com/kubernetes/minikube/issues/1378
+        """
+        cmd = 'minikube ssh -- docker run -i --rm --privileged --pid=host debian nsenter -t 1 -m -u -n -i date -u $(date -u +%m%d%H%M%Y)'
+        cmd_failed = subprocess.call(cmd, shell=True)
+        if cmd_failed:
+            sys.exit('ERROR: could not set clock of minikube')
+        else:
+            logging.info('Set minikube clock successfully')

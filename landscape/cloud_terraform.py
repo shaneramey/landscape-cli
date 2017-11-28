@@ -92,7 +92,7 @@ class TerraformCloud(Cloud):
         f.close()
 
 
-    def converge(self):
+    def converge(self, dry_run):
         """Converges a Terraform cloud environment.
 
         Checks if a terraform cloud is already running
@@ -117,29 +117,33 @@ class TerraformCloud(Cloud):
         terraform_vars = tf_vars_args.format(self.name,
                             'master',
                             '1.8.1-gke.0')
+
         # Generate terraform command: dry-run
-        terraform_cmd_tmpl = 'terraform validate ' + terraform_vars + \
+        terraform_plan_cmd_tmpl = 'terraform validate ' + terraform_vars + \
             ' && ' + \
             'terraform plan ' + terraform_vars + \
             " -state={0}".format(self.terraform_statefile)
 
-        if not self._DRYRUN:
-            terraform_cmd_tmpl += ' && terraform apply ' + terraform_vars + \
-                                    " -state={0}".format(self.terraform_statefile)
-        terraform_cmd = terraform_cmd_tmpl.format(self.name,
-                                                    'master',
-                                                    '1.8.1-gke.0')
-        if not self._DRYRUN:
-            logging.info('  - applying terraform state with command: ' + terraform_cmd)
-            failed_to_apply_terraform = subprocess.call(terraform_cmd,
-                                                        cwd=self.terraform_dir,
-                                                        env=self.envvars(),
-                                                        shell=True)
-            if failed_to_apply_terraform:
-                sys.exit('ERROR: terraform command failed')
-        else:
-            logging.info("DRYRUN: would be Converging terraform with command: {0} in directory: {1}".format(terraform_cmd, self.terraform_dir))
+        terraform_apply_cmd_tmpl = terraform_plan_cmd_tmpl + ' && ' + 'terraform apply ' + terraform_vars + \
+                                " -state={0}".format(self.terraform_statefile)
 
+        terraform_cmd = ''
+        converge_state = ''
+        if dry_run:
+            terraform_cmd = terraform_plan_cmd_tmpl.format(self.name,
+                                                            'master',
+                                                            '1.8.1-gke.0')
+        else:
+            terraform_cmd = terraform_apply_cmd_tmpl.format(self.name,
+                                                            'master',
+                                                            '1.8.1-gke.0')
+        logging.info('Running terraform command: ' + terraform_cmd)
+        failed_terraform = subprocess.call(terraform_cmd,
+                                            cwd=self.terraform_dir,
+                                            env=self.envvars(),
+                                            shell=True)
+        if failed_terraform:
+            sys.exit('ERROR: terraform command failed')
 
 
     def init_terraform(self):

@@ -47,7 +47,7 @@ class Cluster(object):
     def converge(self):
         """Stages of a Kubernetes Cluster converge.
         """
-        self.apply_tiller
+        self.apply_tiller()
 
 
     def setup_tiller_clusterrole_and_serviceaccount(self):

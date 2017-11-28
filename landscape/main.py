@@ -3,7 +3,7 @@
 """
 Usage: landscape [options]
         cloud (list [--git-branch=<git_branch> | --all-branches] [--cluster=<cluster_name>] | 
-               converge [--cloud=<cloud_project>] [--landscaper-dir=<landscaper_yaml_path>])
+               converge [--cloud=<cloud_project>] [--terraform-dir=<terraform_templates_path>])
        landscape [options]
         cluster [--cluster=<cluster_name>] [--cloud=<cloud_name>] (list 
          [--git-branch=<git_branch> | --all-branches] |
@@ -33,7 +33,7 @@ Options:
                                  (charts) repositories matching specified branch
                                  [default: auto-detect-branch].
     --landscaper-dir=<path>      Path to Landscaper YAML dir [default: .].                 
-    --terraform-dir=<path>       Path to Terraform templates [default: ../terraform].                 
+    --terraform-dir=<path>       Path to Terraform templates [default: ./terraform-templates].
     --all-branches               Operate on all branches
     --dry-run                    Simulate, but don't converge.
     --log-level=<log_level>      Log messages at least this level [default: INFO].
@@ -80,6 +80,7 @@ def main():
     use_all_git_branches = args['--all-branches']
     landscaper_dir = args['--landscaper-dir']
     terraform_dir = args['--terraform-dir']
+    CloudCollection.path_to_terraform_repo = terraform_dir
 
     if use_all_git_branches:
         git_branch_selection = None
@@ -108,8 +109,7 @@ def main():
     charts = None
     if not args['secrets']:
         # landscape secrets overwrite --from-lastpass ...
-        clouds = CloudCollection(git_branch=git_branch_selection,
-                                    path_to_terraform_repo=terraform_dir)
+        clouds = CloudCollection(git_branch=git_branch_selection)
         clusters = ClusterCollection(cloud=cloud_selection,
                                         git_branch=git_branch_selection)
     logging.debug("clouds: {0}".format(clouds))
@@ -125,7 +125,7 @@ def main():
                 print(clouds)
         # landscape cloud converge
         elif args['converge']:
-            clouds[cloud_selection].converge()
+            clouds[cloud_selection].converge(dry_run)
 
 
     # landscape cluster ...
@@ -136,8 +136,8 @@ def main():
         # landscape cluster converge
         elif args['converge']:
             if also_converge_cloud:
-                selected_cluster.cloud.converge()
-            clusters[cluster_selection].converge()
+                selected_cluster.cloud.converge(dry_run)
+            clusters[cluster_selection].converge(dry_run)
 
 
     # landscape charts ...

@@ -19,9 +19,10 @@ class CloudCollection(object):
     """
 
     vault_prefix = '/secret/landscape/clouds'
+    path_to_terraform_repo = None
 
     @classmethod
-    def LoadCloudByName(cls, cloud_name, terraform_dir='.'):
+    def LoadCloudByName(cls, cloud_name):
         cloud_vault_path = CloudCollection.vault_prefix + '/' + cloud_name
         cloud_parameters = VaultClient().dump_vault_from_prefix(
                             cloud_vault_path, strip_root_key=True)
@@ -29,7 +30,7 @@ class CloudCollection(object):
             cloud_from_vault = MinikubeCloud(cloud_name, **cloud_parameters)
             return(cloud_from_vault)
         elif cloud_parameters['provisioner'] == 'terraform':
-            cloud_parameters.update({ 'path_to_terraform_repo': terraform_dir })
+            cloud_parameters.update({ 'path_to_terraform_repo': CloudCollection.path_to_terraform_repo })
             cloud_from_vault = TerraformCloud(cloud_name, **cloud_parameters)
             return(cloud_from_vault)
         elif cloud_parameters['provisioner'] == 'unmanaged':
@@ -58,7 +59,6 @@ class CloudCollection(object):
         """
 
         self.git_branch_selector = kwargs['git_branch']
-        self.path_to = kwargs['git_branch']
         self._clouds = []
 
 

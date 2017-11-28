@@ -168,7 +168,7 @@ class TerraformCloud(Cloud):
         tf_init_cmd = tf_init_cmd_tmpl.format(self.name)
 
         if not self._DRYRUN:
-            logging.info('Initializing terraform: ' + tf_init_cmd)
+            logging.info('Initializing terraform with command: {0} in dir: {1}'.format(tf_init_cmd, self.terraform_dir))
             failed_to_init_terraform = subprocess.call(tf_init_cmd,
                                                     cwd=self.terraform_dir,
                                                     env=self.envvars(),
@@ -176,7 +176,7 @@ class TerraformCloud(Cloud):
             if failed_to_init_terraform:
                 sys.exit('ERROR: terraform init failed')
         else:
-            logging.info("DRYRUN: would be Initializing terraform with command: {0} in directory: {1}".format(tf_init_cmd, self.terraform_dir))
+            logging.info('DRYRUN: would be Initializing terraform with command: {0} in dir: {1}'.format(tf_init_cmd, self.terraform_dir))
 
 
     def link_terraform_state_to_project(self):

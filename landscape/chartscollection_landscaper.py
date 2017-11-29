@@ -46,7 +46,7 @@ class LandscaperChartsCollection(ChartsCollection):
         #  - 'all' dir contains charts which can be applied to all clusters.
         # branch used to read landscaper secrets from Vault (to put in env vars)
         self._DRYRUN = dry_run
-        self.context_name = kwargs['context_name']
+        self.cluster_id = kwargs['context_name']
         self.namespace_selection = kwargs['namespace_selection']
         self._charts = []
         self.workdir = path_to_landscaper_repo
@@ -81,14 +81,18 @@ class LandscaperChartsCollection(ChartsCollection):
 
 
     @property
+    def cluster(self):
+        cluster_id = self.cluster_id
+        return ClusterCollection.LoadClusterByName(cluster_id)
+
+    @property
     def git_branch(self):
         """Read landscaper branch for cluster name from vault
 
         Returns:
             landscaper branch for cluster, read from vault (str)
         """
-        cluster = ClusterCollection.LoadClusterByName(self.context_name)
-        return cluster.landscaper_branch
+        return self.cluster.landscaper_branch
 
 
     @property
@@ -98,8 +102,7 @@ class LandscaperChartsCollection(ChartsCollection):
         Returns:
             landscaper branch for cluster, read from vault (str)
         """
-        cluster = ClusterCollection.LoadClusterByName(self.context_name)
-        return cluster.cloud.provisioner
+        return self.cluster.cloud.provisioner
 
 
     @property
@@ -119,6 +122,7 @@ class LandscaperChartsCollection(ChartsCollection):
             None.
         """
         landscaper_path = [self.workdir + '/' + s for s in self._chart_collections()]
+        cluster_ns_subscriptions = self.cluster.namespace_subscriptions
 
         files = self._landscaper_filenames_in_dirs(landscaper_path)
         charts = []
@@ -128,11 +132,12 @@ class LandscaperChartsCollection(ChartsCollection):
                 chart_namespace = chart_info['namespace']
                 # load the chart if it matches a namespace selector list param
                 # or if there's no namespace selector list, load all
-                if chart_namespace in self.namespace_selection or not self.namespace_selection:
-                    # Add path to landscaper yaml inside Chart object
-                    chart_info['filepath'] = landscaper_yaml
-                    chart = LandscaperChart(**chart_info)
-                    charts.append(chart)
+                if chart_namespace in cluster_ns_subscriptions or not cluster_ns_subscriptions:
+                    if chart_namespace in self.namespace_selection or not self.namespace_selection:
+                        # Add path to landscaper yaml inside Chart object
+                        chart_info['filepath'] = landscaper_yaml
+                        chart = LandscaperChart(**chart_info)
+                        charts.append(chart)
         return charts
 
 
@@ -178,7 +183,7 @@ class LandscaperChartsCollection(ChartsCollection):
             envvar_secrets_for_namespace = self.get_landscaper_envvars_for_namespace(namespace)
             # Get list of yaml files
             yamlfiles_in_namespace = [item.filepath for item in self.charts if item.namespace == namespace]
-            self.deploy_charts_for_namespace(yamlfiles_in_namespace, namespace, envvar_secrets_for_namespace)
+            self.deploy_charts_for_namespace(yamlfiles_in_namespace, namespace, envvar_secrets_for_namespace, dry_run)
 
 
     def __namespaces(self):
@@ -247,7 +252,7 @@ class LandscaperChartsCollection(ChartsCollection):
         return landscaper_env_vars
 
 
-    def deploy_charts_for_namespace(self, landscaper_filepaths, k8s_namespace, envvars):
+    def deploy_charts_for_namespace(self, landscaper_filepaths, k8s_namespace, envvars, simulate):
         """Pulls secrets from Vault and converges charts using Landscaper.
 
         Helm Tiller must already be installed. Injects environment variables 
@@ -269,7 +274,7 @@ class LandscaperChartsCollection(ChartsCollection):
         #       at in a namespace. This is because Landscaper wipes the ns 1st 
         ls_apply_cmd = 'landscaper apply -v --namespace=' + \
                             k8s_namespace + \
-                            ' --context=' + self.context_name
+                            ' --context=' + self.cluster_id
         # point Landscaper at the right helm home directory
         # (it doesn't respect the HELM_HOME environment variable)
         if 'HELM_HOME' in os.environ:
@@ -277,7 +282,7 @@ class LandscaperChartsCollection(ChartsCollection):
             ls_apply_cmd += ' --helm-home={0}'.format(helm_home)
         ls_apply_cmd += ' ' + ' '.join(landscaper_filepaths)
 
-        if self._DRYRUN:
+        if simulate:
             ls_apply_cmd += ' --dry-run'
         logging.info('Executing: ' + ls_apply_cmd)
         # update env to preserve VAULT_ env vars

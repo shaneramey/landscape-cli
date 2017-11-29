@@ -49,11 +49,11 @@ class TerraformCluster(Cluster):
             None.
         """
         self._cluster_zone = kwargs['gke_cluster_zone']
-        self._cluster_name = kwargs['gke_cluster_name']
+        self._cluster_id = kwargs['gke_cluster_name']
         Cluster.__init__(self, name, **kwargs)
         self._gcloud_auth_jsonfile = os.getcwd() + '/cluster-serviceaccount-' + self.name + '.json'
 
-    def converge(self):
+    def converge(self, dry_run):
         """Activates authentication for bringing up a Terraform cluster
 
         Args:
@@ -75,7 +75,10 @@ class TerraformCluster(Cluster):
         if gce_auth_failed:
             sys.exit("ERROR: non-zero retval for {}".format(gce_auth_cmd))
         self._configure_kubectl_credentials()
-        Cluster.converge(self)
+        if not dry_run:
+            Cluster.converge(self)
+        else:
+            logging.info("DRYRUN: would be converging cluster")
 
 
     def _update_environment_vars_with_gcp_auth(self):
@@ -162,7 +165,7 @@ class TerraformCluster(Cluster):
             None.
         """
 
-        get_creds_cmd = "gcloud container clusters get-credentials --project={0} --zone={1} {2}".format(self.cloud_id, self._cluster_zone, self._cluster_name)
+        get_creds_cmd = "gcloud container clusters get-credentials --project={0} --zone={1} {2}".format(self.cloud_id, self._cluster_zone, self._cluster_id)
         envvars = self._update_environment_vars_with_gcp_auth()
         logging.info("Running command {0}".format(get_creds_cmd))
         get_creds_failed = subprocess.call(get_creds_cmd, env=envvars, shell=True)

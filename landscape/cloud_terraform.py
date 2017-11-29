@@ -36,7 +36,7 @@ class TerraformCloud(Cloud):
         """
         Cloud.__init__(self, name, **kwargs)
         self.terraform_dir = kwargs['path_to_terraform_repo']
-        self.terraform_statefile = self.terraform_dir + '/.terraform/terraform.' + self.name + '.tfstate'
+        self.terraform_statefile = self.name + '.tfstate'
         self.__gcp_auth_jsonfile = os.getcwd() + '/cloud-serviceaccount-' + self.name + '.json'
         logging.debug("Using Terraform Directory: " + self.terraform_dir)
 
@@ -163,7 +163,7 @@ class TerraformCloud(Cloud):
         tf_init_cmd_tmpl = 'terraform init ' + \
                         '-backend-config "bucket=tfstate-{0}" ' + \
                         '-backend-config "path=tfstate-{0}" ' + \
-                        '-backend-config "project={0}" '
+                        '-backend-config "project={0}"'
 
         tf_init_cmd = tf_init_cmd_tmpl.format(self.name)
 
@@ -206,19 +206,25 @@ class TerraformCloud(Cloud):
         logging.info("Attempting to link {0} to {1}".format(project_terraform_statefile, symlink_to_manage))
 
         if os.path.exists(symlink_to_manage):
+            logging.info("path {0} exists".format(symlink_to_manage))
             # Yes, but is it a symlink?
             if os.path.islink(symlink_to_manage):
+                logging.info("path {0} islink".format(symlink_to_manage))
                 # Yes, but is it pointing to the correct place?
                 if os.readlink(symlink_to_manage) != project_terraform_statefile:
+                    logging.info("{0} != {1}".format(project_terraform_statefile, symlink_to_manage))
                     # No, so unlink it and re-link to my VPC state.
                     os.unlink(symlink_to_manage)
                     os.symlink(project_terraform_statefile, symlink_to_manage)
             # It's not a symlink, so let's rename .terraform/terraform.tfstate
             # to .terraform/terraform-${project_id}.tfstate and link it back
             else:
+                logging.info("renaming {0} to {1}".format(symlink_to_manage, project_terraform_statefile))
                 os.rename(symlink_to_manage, project_terraform_statefile)
+                logging.info("symlink {0} to {1}".format(project_terraform_statefile, symlink_to_manage))
                 os.symlink(project_terraform_statefile, symlink_to_manage)
-
+        else:
+            logging.info("path {0} doesnt exist in dir {1}".format(symlink_to_manage, os.getcwd()))
 
     def __getitem__(self, x):
         """Enables the Cloud object to be subscriptable.

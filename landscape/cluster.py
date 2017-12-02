@@ -37,9 +37,12 @@ class Cluster(object):
         self._DRYRUN = dry_run
         for key, value in kwargs.items():
             setattr(self, key, value)
-            # split up landscaper_namespaces CSV from Vault into list
-            if key == 'landscaper_namespaces':
-                self.namespace_subscriptions = value.split(',')
+        # split up landscaper_namespaces CSV from Vault into list. Empty value
+        # deploys all namespaces
+        if hasattr(self, 'landscaper_namespaces'):
+            self.namespace_subscriptions = self.landscaper_namespaces.split(',')
+        else:
+            self.namespace_subscriptions = []
 
     @property
     def cloud(self):

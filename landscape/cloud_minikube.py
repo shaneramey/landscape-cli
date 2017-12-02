@@ -2,9 +2,11 @@ import subprocess
 import sys
 import logging
 import shutil
+import os
 from os.path import expanduser
 
 from .cloud import Cloud
+
 
 class MinikubeCloud(Cloud):
     """A Minikube-provisioned Virtual Machine
@@ -65,13 +67,15 @@ class MinikubeCloud(Cloud):
         # Copy docker registry credentials to inside minikube
         home = expanduser('~')
         docker_local_auth_file = home + '/.docker/config.json'
-        minikube_file_copy_location = home + '/.minikube/files/'
+        inside_vm_loc = '/var/lib/kubelet'
+        minikube_file_copy_location = home + '/.minikube/files/' + inside_vm_loc
         inside_minikube_docker_auth_file = '/files/config.json'
         logging.info("Copying file: {0} from local machine to inside " + \
                         "minikube VM at path: {1} via path: {2}".format(
                             docker_local_auth_file,
                             inside_minikube_docker_auth_file,
                             minikube_file_copy_location))
+        os.makedirs(minikube_file_copy_location, exist_ok=True)
         shutil.copy(docker_local_auth_file, minikube_file_copy_location)
 
         # start minikube
@@ -92,7 +96,7 @@ class MinikubeCloud(Cloud):
                 '--keep-context ' + \
                 '-v=2'
         start_cmd = start_cmd_tmpl.format('1.8.0',
-                                            'xhyve',
+                                            'hyperkit',
                                             'cluster.local')
         logging.info("Starting minikube with command: {0}".format(start_cmd))
         minikube_start_failed = subprocess.call(start_cmd, shell=True)

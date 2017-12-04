@@ -34,51 +34,51 @@ class MinikubeCluster(Cluster):
             None.
         """
         # skip re-configuring kubectl for minikube, so that inside-cluster works
-        get_cfg_contexts_cmd = 'kubectl config get-contexts -o=name'
+        self._configure_kubectl_credentials()
+        logging.info('Configuring minikube addons')
+        disable_addons = ['kube-dns', 'ingress', 'registry-creds']
+        enable_addons = ['storage-provisioner', 'default-storageclass']
 
-        proc = subprocess.Popen(get_cfg_contexts_cmd, stdout=subprocess.PIPE, shell=True)
-        configured_context_names = proc.stdout.read().rstrip().decode()
-        # don't re-configure minikube
-        if 'minikube' in configured_context_names:
-            logging.info('minikube context already configured. Skipping setup')
-        else:
-            self._configure_kubectl_credentials()
-            logging.info('Configuring minikube addons')
-            disable_addons = ['kube-dns', 'ingress', 'registry-creds']
-            enable_addons = ['default-storageclass']
-
-            # addons to disable
-            for disable_addon in disable_addons:
-                addon_cmd = "minikube addons disable {0}".format(disable_addon)
-                if not dry_run:
+        # addons to disable
+        for disable_addon in disable_addons:
+            addon_cmd = "minikube addons disable {0}".format(disable_addon)
+            if not dry_run:
+                logging.warn(
+                    "Disabling addon with command: {0}".format(addon_cmd))
+                check_cmd_failed = subprocess.call(addon_cmd, shell=True)
+                if check_cmd_failed:
                     logging.warn(
-                        "Disabling addon with command: {0}".format(addon_cmd))
-                    check_cmd_failed = subprocess.call(addon_cmd, shell=True)
-                    if check_cmd_failed:
-                        logging.warn(
-                            'Failed to ' + \
-                            "disable addon with command: {0}".format(addon_cmd))
-                else:
-                    logging.info(
-                        'DRYRUN: would be ' + \
-                        "Disabling addon with command: {0}".format(addon_cmd))
-            # addons to enable
-            for enable_addon in enable_addons:
-                addon_cmd = "minikube addons enable {0}".format(enable_addon)
-                if not dry_run:
+                        'Failed to ' + \
+                        "disable addon with command: {0}".format(addon_cmd))
+            else:
+                logging.info(
+                    'DRYRUN: would be ' + \
+                    "Disabling addon with command: {0}".format(addon_cmd))
+        # addons to enable
+        for enable_addon in enable_addons:
+            addon_cmd = "minikube addons enable {0}".format(enable_addon)
+            if not dry_run:
+                logging.warn(
+                    "Enabling addon with command: {0}".format(addon_cmd))
+                check_cmd_failed = subprocess.call(addon_cmd, shell=True)
+                if check_cmd_failed:
                     logging.warn(
-                        "Enabling addon with command: {0}".format(addon_cmd))
-                    check_cmd_failed = subprocess.call(addon_cmd, shell=True)
-                    if check_cmd_failed:
-                        logging.warn(
-                            'Failed to ' + \
-                            "enable addon with command: {0}".format(addon_cmd))
-                else:
-                    logging.info(
-                        'DRYRUN: would be ' + \
-                        "Enabling addon with command: {0}".format(addon_cmd))
-        self._configure_docker_credentials()
+                        'Failed to ' + \
+                        "enable addon with command: {0}".format(addon_cmd))
+            else:
+                logging.info(
+                    'DRYRUN: would be ' + \
+                    "Enabling addon with command: {0}".format(addon_cmd))
+        # self._configure_docker_credentials()
+        self.setup_kube_system_clusterrole_and_serviceaccount()
         Cluster.converge(self)
+
+
+    def setup_kube_system_clusterrole_and_serviceaccount(self):
+        """Provisions necessary Tiller RBAC role
+        """
+        self.create_serviceaccount('default', 'kube-system')
+        self.create_clusterrolebinding('default', 'kube-system', 'cluster-admin')
 
 
     def _configure_kubectl_credentials(self):

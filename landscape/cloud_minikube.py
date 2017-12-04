@@ -83,6 +83,7 @@ class MinikubeCloud(Cloud):
                 '--kubernetes-version=v{0} ' + \
                 "--vm-driver={1} " + \
                 "--dns-domain={2} " + \
+                "--extra-config=apiserver.ServiceClusterIPRange=10.0.0.0/24 " + \
                 '--extra-config=apiserver.Authorization.Mode=RBAC ' + \
                 '--extra-config=controller-manager.ClusterSigningCertFile=' + \
                 '/var/lib/localkube/certs/ca.crt ' + \
@@ -102,7 +103,8 @@ class MinikubeCloud(Cloud):
         minikube_start_failed = subprocess.call(start_cmd, shell=True)
         if minikube_start_failed:
             sys.exit('ERROR: minikube cloud initialization failure')
-        self.set_minikube_clock()
+        # TODO: fix start-up issues after setting the clock
+        # self.set_minikube_clock()
 
 
     def set_minikube_clock(self):

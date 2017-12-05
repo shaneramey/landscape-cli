@@ -97,7 +97,7 @@ class MinikubeCloud(Cloud):
                 '--keep-context ' + \
                 '-v=2'
         start_cmd = start_cmd_tmpl.format('1.8.0',
-                                            'hyperkit',
+                                            'xhyve',
                                             'cluster.local')
         logging.info("Starting minikube with command: {0}".format(start_cmd))
         minikube_start_failed = subprocess.call(start_cmd, shell=True)

@@ -83,7 +83,6 @@ class MinikubeCloud(Cloud):
                 '--kubernetes-version=v{0} ' + \
                 "--vm-driver={1} " + \
                 "--dns-domain={2} " + \
-                "--extra-config=apiserver.ServiceClusterIPRange=10.0.0.0/24 " + \
                 '--extra-config=apiserver.Authorization.Mode=RBAC ' + \
                 '--extra-config=controller-manager.ClusterSigningCertFile=' + \
                 '/var/lib/localkube/certs/ca.crt ' + \

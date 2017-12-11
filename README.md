@@ -22,6 +22,23 @@ It does this in a portable way, by abstracting cluster provisioning, and central
 
 Apps are deployed via Helm Charts, with secrets kept in Vault until deployment
 
+
+## Wrapping landscaper tool
+To apply a single namespace in landscaper, the command is:
+```
+landscaper apply -v --namespace=jenkins --context=minikube ./all/jenkins/jenkins.yaml
+```
+
+This requires environment variables set.
+
+To read secrets from Vault and sets the secrets in environment variable(s)) use the landscape-cli wrapper tool:
+
+```
+# Run below while cd'd to landscaper directory root
+export VAULT_ADDR=<vault server address>
+landscape charts converge --cluster=minikube --namespaces=jenkins
+```
+
 ## Example Usage
  - List all clouds stored in Vault
 ```
